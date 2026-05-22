@@ -1,0 +1,337 @@
+{
+  "RESET": [
+    [
+      "play audio file /usr/bin/audio/reset",
+      "reset提示音",
+      true,
+      ""
+    ],
+    [
+      "finish play /usr/bin/audio/reset",
+      "reset提示音播放成功",
+      true,
+      ""
+    ],
+    [
+      "\\[ble\\] trans start",
+      "cpu打印蓝牙打开",
+      true,
+      ""
+    ],
+    [
+      "\\[ble\\] trans stop",
+      "cpu打印蓝牙关闭",
+      true,
+      ""
+    ],
+    [
+      "i:gz_ble_start: i=0",
+      "wifi打印蓝牙打开",
+      true,
+      ""
+    ],
+    [
+      "i:__gz_ble_disconnect: adv_stop",
+      "wifi打印蓝牙关闭",
+      true,
+      ""
+    ],
+    [
+      "i:ble_set_adv_and_scan_rsp: adv_start",
+      "开始广播",
+      true,
+      ""
+    ],
+    [
+      "get ip:",
+      "WiFi重连",
+      true,
+      ""
+    ],
+    [
+      "send reset to T41",
+      "reset",
+      true,
+      ""
+    ],
+    [
+      "reset gpio:1",
+      "reset,reset gpio:1",
+      true,
+      ""
+    ],
+    [
+      "gz_ble_stop --------",
+      "gz_ble_stop蓝牙关闭",
+      true,
+      ""
+    ],
+    [
+      "gz_ble_start \\+\\+\\+\\+\\+\\+\\+\\+",
+      "gz_ble_start蓝牙打开",
+      true,
+      ""
+    ]
+  ],
+  "绑定解绑": [
+    [
+      "\\[ble\\] trans start",
+      "配网前蓝牙打开",
+      true,
+      "142"
+    ],
+    [
+      "play audio file /usr/bin/audio/di",
+      "滴",
+      true,
+      "139"
+    ],
+    [
+      "play audio file /usr/bin/audio/us/connect_wifi",
+      "配网开始",
+      true,
+      "139"
+    ],
+    [
+      "\\[ble\\] trans stop|gz_ble_stop \\+\\+\\+\\+\\+\\+\\+\\+",
+      "配网后蓝牙关闭",
+      true,
+      ""
+    ],
+    [
+      "finish play /usr/bin/audio/us/connect_succ",
+      "绑定成功",
+      true,
+      "139"
+    ],
+    [
+      "gz_ble_stop --------",
+      "解绑后蓝牙关闭",
+      true,
+      "142"
+    ],
+    [
+      "gz_ble_start \\+\\+\\+\\+\\+\\+\\+\\+",
+      "解绑后蓝牙打开+++",
+      true,
+      "141"
+    ],
+    [
+      "gz_ble_start ---",
+      "解绑后蓝牙打开---",
+      true,
+      "0"
+    ]
+  ],
+  "卡刷OTA升级": [
+    [
+      "begin sd upgrade",
+      "开始产测升级(仅产测升级才勾，卡刷OTA无需勾)",
+      false,
+      ""
+    ],
+    [
+      "firmware download start",
+      "固件开始下载(仅OTA升级才勾，卡刷产测无需勾)",
+      false,
+      ""
+    ],
+    [
+      "download finish result 0",
+      "固件下载完成(仅OTA升级才勾，卡刷产测无需勾)",
+      false,
+      ""
+    ],
+    [
+      "gz_sys_upgrade_ex start updating wifi",
+      "开始WiFi升级",
+      true,
+      ""
+    ],
+    [
+      "gz_sys_upgrade_ex wifi update result: 0",
+      "WiFi升级-成功",
+      true,
+      ""
+    ],
+    [
+      "gz_sys_upgrade_ex start updating (mcu|radar)",
+      "开始MCU/雷达升级",
+      true,
+      ""
+    ],
+    [
+      "s_(mcu|radar)_upgrade_result: 0",
+      "MCU/雷达升级-成功",
+      true,
+      ""
+    ],
+    [
+      "gz_sys_upgrade_ex start updating (AX|RV1103B)",
+      "开始主控升级",
+      true,
+      ""
+    ],
+    [
+      "gz_sys_upgrade_ex (AX|RV1103B) update result: 0",
+      "主控升级-成功",
+      true,
+      ""
+    ],
+    [
+      "reboot type: 0",
+      "升级成功重启",
+      true,
+      ""
+    ]
+  ],
+  "开关机": [
+    [
+      "play power off audio",
+      "关机",
+      true,
+      ""
+    ],
+    [
+      "finish play /usr/bin/audio/power_off",
+      "关机语音播报",
+      true,
+      ""
+    ],
+    [
+      "do poweroff",
+      "正常关机",
+      true,
+      ""
+    ],
+    [
+      "power cut 1",
+      "硬关机",
+      true,
+      ""
+    ],
+    [
+      "sd7601_set_bat_turn, 0",
+      "硬关机-电池",
+      true,
+      ""
+    ],
+    [
+      "i:version",
+      "WiFi版本",
+      true,
+      ""
+    ],
+    [
+      "ROMBoot startup",
+      "WiFi重启",
+      true,
+      ""
+    ],
+    [
+      "power cut 0",
+      "软关机",
+      true,
+      ""
+    ],
+    [
+      "do poweron",
+      "正常开机",
+      true,
+      ""
+    ],
+    [
+      "get ip:1",
+      "联网成功",
+      true,
+      ""
+    ],
+    [
+      "play power on audio",
+      "开机",
+      true,
+      ""
+    ],
+    [
+      "finish play /usr/bin/audio/power_on",
+      "开机语音播报",
+      true,
+      ""
+    ],
+    [
+      "mmcblk0p1 mounted",
+      "TF卡加载成功(仅部分支持)",
+      false,
+      ""
+    ]
+  ],
+  "休眠唤醒": [
+    [
+      "start main",
+      "设备启动",
+      true,
+      ""
+    ],
+    [
+      "start event type (\\d+), ts:",
+      "开始事件录制",
+      true,
+      ""
+    ],
+    [
+      "stop_record done",
+      "事件结束录制",
+      true,
+      ""
+    ],
+    [
+      "\"w\":0|\"w\":1",
+      "有效/无效事件上报",
+      true,
+      ""
+    ],
+    [
+      "device enter sleep mode!",
+      "准备休眠",
+      true,
+      ""
+    ],
+    [
+      "play audio thread is exiting|PreSleepSoc",
+      "进入休眠",
+      true,
+      ""
+    ]
+  ],
+  "设备信息": [
+    [
+      "设备SN",
+      "gz sn (\\S+)",
+      "3da6c20cf52d5132bb1103880752ddb5"
+    ],
+    [
+      "主控版本",
+      "get full version (\\S+)",
+      "C9S13_20260421.2.5.3"
+    ],
+    [
+      "Wi-Fi版本",
+      "get wifi ver (\\S+)",
+      "B2_20260421.2.7.4"
+    ]
+  ],
+  "TF卡": [
+    [
+      "mmcblk1p1 adding",
+      "插卡",
+      true,
+      ""
+    ],
+    [
+      "mmcblk1p1 ready",
+      "卡已经挂载",
+      true,
+      ""
+    ]
+  ]
+}

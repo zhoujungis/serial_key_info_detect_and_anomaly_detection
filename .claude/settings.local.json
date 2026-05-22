@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import PyQt5; print\\(PyQt5.QtCore.PYQT_VERSION_STR\\)\")",
+      "Bash(python -c \"import PySide6; print\\(PySide6.__version__\\)\")",
+      "Bash(pip install *)",
+      "Bash(python3 *)",
+      "Bash(python *)",
+      "Bash(pyinstaller --onefile --name BigBoom --add-data \"config;config\" --hidden-import PyQt6 --noconsole main.py)",
+      "Bash(Get-ChildItem *)",
+      "PowerShell(pyinstaller *)",
+      "PowerShell(Get-ChildItem -Path \"D:\\\\big_boom\\\\dist\\\\BigBoom.exe\" | Format-Table Name, @{N='Size\\(MB\\)';E={[math]::Round\\($_.Length/1MB, 2\\)}} -AutoSize)",
+      "Bash(Move-Item *)",
+      "Bash(Select-Object FullName, Length, LastWriteTime)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Get-Content D:\\\\big_boom\\\\*.py)",
+      "Bash(Select-String -Pattern \"if __name__ == '__main__'\")",
+      "Bash(Select-Object -First 5)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "PowerShell(Get-Item D:\\\\big_boom\\\\dist\\\\BigBoom.exe | Select-Object Name, @{N='SizeMB';E={[math]::Round\\($_.Length/1MB, 1\\)}})",
+      "PowerShell(python -c \"import PyInstaller; print\\('PyInstaller version:', PyInstaller.__version__\\)\")",
+      "PowerShell(python -c \"import PyQt6; print\\('PyQt6 version:', PyQt6.QtCore.PYQT_VERSION_STR\\)\"; python -c \"import requests; print\\('requests version:', requests.__version__\\)\")",
+      "PowerShell(python -c \"from PyQt6 import QtCore; print\\('PyQt6 QtCore OK, v' + QtCore.PYQT_VERSION_STR\\)\")",
+      "Bash(cmd *)",
+      "Bash(Remove-Item *)"
+    ]
+  }
+}

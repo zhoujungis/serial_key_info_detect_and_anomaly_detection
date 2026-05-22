@@ -1,0 +1,114 @@
+[
+  [
+    "绑定解绑",
+    "\\[ble\\] on connect mtu",
+    "get aplist count",
+    "45",
+    false
+  ],
+  [
+    "绑定解绑",
+    "start main function",
+    "gz_ble_start",
+    "20",
+    true
+  ],
+  [
+    "绑定解绑",
+    "play audio file /usr/bin/audio/us/connect_wifi",
+    "finish play /usr/bin/audio/us/connect_succ",
+    "60",
+    false
+  ],
+  [
+    "绑定解绑",
+    "\\[ble\\] trans stop",
+    "finish play /usr/bin/audio/us/connect_succ",
+    "20",
+    false
+  ],
+  [
+    "RESET",
+    "get ip:",
+    "send reset to T41",
+    "840",
+    false
+  ],
+  [
+    "RESET",
+    "finish play /usr/bin/audio/reset",
+    "gz_ble_start \\+\\+\\+\\+\\+\\+\\+\\+",
+    "30",
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "gz_sys_upgrade_ex start updating wifi",
+    "gz_sys_upgrade_ex wifi update result: 0",
+    "20",
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "gz_sys_upgrade_ex start updating (mcu|radar)",
+    "s_(mcu|radar)_upgrade_result: 0",
+    "20",
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "gz_sys_upgrade_ex start updating (AX|RV1103B)",
+    "gz_sys_upgrade_ex (AX|RV1103B) update result: 0",
+    "45",
+    false
+  ],
+  [
+    "开关机",
+    "play power off audio",
+    "finish play /usr/bin/audio/power_off",
+    "3",
+    false
+  ],
+  [
+    "开关机",
+    "play power on audio",
+    "finish play /usr/bin/audio/power_on",
+    "3",
+    false
+  ],
+  [
+    "开关机",
+    "do poweron",
+    "get ip:1",
+    "20",
+    false
+  ],
+  [
+    "休眠唤醒",
+    "start event type (\\d+), ts:",
+    "\"w\":(\\d)",
+    "0:60,1:10",
+    false
+  ],
+  [
+    "休眠唤醒",
+    "stop_record done",
+    "device enter sleep mode!",
+    "5",
+    true
+  ],
+  [
+    "休眠唤醒",
+    "device enter sleep mode!",
+    "play audio thread is exiting",
+    "2",
+    false
+  ],
+  [
+    "TF卡",
+    "mmcblk1p1 adding",
+    "gz_dp_report string 109",
+    "3",
+    false
+  ]
+]
