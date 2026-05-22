@@ -3,7 +3,6 @@ import json
 import os
 import re
 import shutil
-import threading
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QMenuBar,
     QDialog, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
@@ -325,6 +324,43 @@ def save_device_info(data):
     _ensure_config_dir()
     with open(DEVICE_INFO_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _read_file_bytes(path):
+    """Read file as bytes once, then try to decode — avoids multiple full-file reads."""
+    with open(path, "rb") as f:
+        raw = f.read()
+    for enc in ["utf-8", "gbk", "utf-16", "latin-1"]:
+        try:
+            return raw.decode(enc)
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    return None
+
+
+def _read_file_lines(path):
+    """Read file as list of lines with auto encoding detection (single I/O)."""
+    content = _read_file_bytes(path)
+    if content is None:
+        return None
+    return content.split("\n")
+
+
+# Pre-compiled regex for hot-path timestamp extraction (called millions of times)
+_TS_PATTERNS = [
+    re.compile(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})'),
+    re.compile(r'\[(\d{2}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\]'),
+    re.compile(r'(\d{2}:\d{2}:\d{2}\.\d+)'),
+    re.compile(r'(\d{2}:\d{2}:\d{2})'),
+]
+
+_FULL_TS_RE1 = re.compile(r'\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\]')
+_FULL_TS_RE2 = re.compile(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)')
+_FULL_TS_RE3 = re.compile(r'(\d{2}:\d{2}:\d{2}\.\d+)')
+_TS_PARSE_RE = re.compile(r'^(\d+):(\d{2}):(\d{2})(?:\.(\d+))?$')
+_REF_HMS_RE = re.compile(r'^(\d+):(\d{2}):(\d{2})$')
+_REF_HM_RE = re.compile(r'^(\d+):(\d{2})$')
+_REF_VAL_RE = re.compile(r'^([\d.]+)\s*(ms|s|m|h)?$')
 
 
 class ReorderableTable(QTableWidget):
@@ -865,7 +901,9 @@ class MainWindow(QMainWindow):
         self.current_file = None
         self.current_folder = None
         self.raw_content = ""
+        self.raw_lines = []
         self._last_sections = []
+        self._realtime_file_size = 0
         self.run_mode = "offline"
         self.realtime_running = False
         self.realtime_interval_min = 30
@@ -1027,7 +1065,7 @@ class MainWindow(QMainWindow):
         ver_act = QAction("版本", self)
         ver_act.triggered.connect(lambda: self._show_info_dialog(
             "版本信息", "BigBoom",
-            "V0.7", "日志关键信息分析工具"
+            "V0.8", "日志关键信息分析工具"
         ))
         help_menu.addAction(ver_act)
 
@@ -1197,10 +1235,10 @@ class MainWindow(QMainWindow):
                 size_str = f"{size_mb:.2f} MB"
             except OSError:
                 size_str = "-"
-            lines_str = f"{len(self.raw_content.splitlines())} 行" if self.raw_content else ""
+            lines_str = f"{len(self.raw_lines)} 行" if self.raw_lines else ""
             meta = " · ".join(filter(None, [self.current_file, size_str, lines_str]))
         else:
-            meta = f"文件夹: {self.current_folder}  ·  {len(self.raw_content.splitlines())} 行"
+            meta = f"文件夹: {self.current_folder}  ·  {len(self.raw_lines)} 行"
 
         if self.realtime_running:
             every = self._fmt_interval(self.realtime_interval_min)
@@ -1279,21 +1317,52 @@ class MainWindow(QMainWindow):
     def _refresh_realtime_file(self):
         if not self.current_file or not os.path.isfile(self.current_file):
             return
-        content = None
-        for enc in ["utf-8", "gbk", "utf-16", "latin-1"]:
-            try:
-                with open(self.current_file, "r", encoding=enc) as f:
-                    content = f.read()
-                break
-            except UnicodeDecodeError:
-                continue
-            except Exception:
-                return
-        if content is None:
+
+        try:
+            current_size = os.path.getsize(self.current_file)
+        except OSError:
             return
 
-        self.raw_content = content
-        self._extract_device_info(content)
+        prev_size = getattr(self, '_realtime_file_size', 0)
+
+        if current_size < prev_size:
+            # File truncated/rotated — full re-read
+            prev_size = 0
+            self.raw_content = ""
+            self.raw_lines = []
+
+        if current_size == prev_size:
+            self._rerun_analysis()
+            self.last_update = datetime.now()
+            self._update_path_label()
+            return  # No new data
+
+        with open(self.current_file, "rb") as f:
+            f.seek(prev_size)
+            new_bytes = f.read()
+
+        new_content = None
+        for enc in ["utf-8", "gbk", "utf-16", "latin-1"]:
+            try:
+                new_content = new_bytes.decode(enc)
+                break
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+
+        if new_content is None:
+            return
+
+        self.raw_content += new_content
+        new_lines = new_content.split("\n")
+        # Merge partial line at the boundary
+        if self.raw_lines and new_lines:
+            self.raw_lines[-1] += new_lines[0]
+            self.raw_lines.extend(new_lines[1:])
+        else:
+            self.raw_lines.extend(new_lines)
+
+        self._realtime_file_size = current_size
+        self._extract_device_info(self.raw_content)
         self._rerun_analysis()
         self.last_update = datetime.now()
         self._update_path_label()
@@ -1305,6 +1374,7 @@ class MainWindow(QMainWindow):
         if merged is None:
             return
         self.raw_content = "\n".join(merged)
+        self.raw_lines = merged
         self._extract_device_info(self.raw_content)
         self._rerun_analysis()
         self.last_update = datetime.now()
@@ -1365,7 +1435,9 @@ class MainWindow(QMainWindow):
         self.current_file = None
         self.current_folder = None
         self.raw_content = ""
+        self.raw_lines = []
         self.last_analysis = None
+        self._realtime_file_size = 0
         self._update_path_label()
         self.setWindowTitle("日志关键信息分析 - 未命名")
 
@@ -1376,27 +1448,18 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        encodings = ["utf-8", "gbk", "utf-16", "latin-1"]
-        content = None
-        last_err = None
-        for enc in encodings:
-            try:
-                with open(path, "r", encoding=enc) as f:
-                    content = f.read()
-                break
-            except UnicodeDecodeError as e:
-                last_err = e
-                continue
-
+        content = _read_file_bytes(path)
         if content is None:
-            QMessageBox.critical(self, "错误", f"无法识别文件编码: {last_err}")
+            QMessageBox.critical(self, "错误", "无法识别文件编码")
             return
 
         self.raw_content = content
+        self.raw_lines = content.split("\n")
         self.output.clear()
         self.current_file = path
         self.current_folder = None
         self.last_analysis = None
+        self._realtime_file_size = os.path.getsize(path)
         self.setWindowTitle(f"日志关键信息分析 - {os.path.basename(path)}")
         self.progress.setValue(0)
         self._update_path_label()
@@ -1414,6 +1477,7 @@ class MainWindow(QMainWindow):
             return
 
         self.raw_content = "\n".join(merged)
+        self.raw_lines = merged
         self.output.clear()
         self.current_file = None
         self.current_folder = folder
@@ -1470,13 +1534,7 @@ class MainWindow(QMainWindow):
             return 9999999999.0
 
         def read_lines(filepath):
-            for enc in ["utf-8", "gbk", "utf-16", "latin-1"]:
-                try:
-                    with open(filepath, "r", encoding=enc) as f:
-                        return f.read().split("\n")
-                except UnicodeDecodeError:
-                    continue
-            return None
+            return _read_file_lines(filepath)
 
         all_lines = []
         file_count = len(files)
@@ -1585,7 +1643,7 @@ class MainWindow(QMainWindow):
                 # ── Page header ──
                 canvas.setFont(font_name, 7)
                 canvas.setFillColor(colors.HexColor("#c0c5ce"))
-                canvas.drawString(22 * mm, ch - 16 * mm, "BigBoom V0.7  ·  日志关键信息分析报告")
+                canvas.drawString(22 * mm, ch - 16 * mm, "BigBoom V0.8  ·  日志关键信息分析报告")
                 canvas.drawRightString(cw - 22 * mm, ch - 16 * mm,
                     datetime.now().strftime("%Y-%m-%d %H:%M"))
 
@@ -1642,14 +1700,8 @@ class MainWindow(QMainWindow):
     def _extract_timestamp(self, line):
         if not line:
             return "--:--:--"
-        patterns = [
-            r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})',
-            r'\[(\d{2}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\]',
-            r'(\d{2}:\d{2}:\d{2}\.\d+)',
-            r'(\d{2}:\d{2}:\d{2})',
-        ]
-        for p in patterns:
-            m = re.search(p, line)
+        for p in _TS_PATTERNS:
+            m = p.search(line)
             if m:
                 return m.group(1)
         return "--:--:--"
@@ -1704,7 +1756,7 @@ class MainWindow(QMainWindow):
             return
         self.last_analysis = self.run_match
 
-        lines = self.raw_content.split("\n")
+        lines = self.raw_lines
         total = len(lines)
         if total == 0:
             if not silent:
@@ -1816,8 +1868,9 @@ class MainWindow(QMainWindow):
                         state['seen'][kw_idx] = line_idx
                         break
 
-            if line_idx % 100 == 0:
+            if line_idx % 1000 == 0:
                 self.progress.setValue(line_idx)
+                QApplication.processEvents()
 
         for tn, kws in test_keywords.items():
             state = states[tn]
@@ -1942,6 +1995,17 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", "没有配置时间规则，请先在时间配置中添加")
             return
 
+        # Pre-compile regex for each rule (same rule applies to many cycle files)
+        compiled_rules = {}  # id(rule) -> (start_re, end_re) or None if invalid
+        for rule in time_rules:
+            if not rule[1] or not rule[2]:
+                compiled_rules[id(rule)] = None
+                continue
+            try:
+                compiled_rules[id(rule)] = (re.compile(rule[1]), re.compile(rule[2]))
+            except re.error:
+                compiled_rules[id(rule)] = None
+
         # 先收集所有要处理的任务
         tasks = []  # [(test_name, cycle_file, rule, file_lines)]
         for test_name in selected_tests:
@@ -1956,7 +2020,7 @@ class MainWindow(QMainWindow):
                 with open(filepath, "r", encoding="utf-8") as f:
                     file_lines = f.read().split("\n")
                 for rule in test_rules:
-                    if rule[1] and rule[2]:
+                    if compiled_rules.get(id(rule)):
                         tasks.append((test_name, cf, rule, file_lines))
 
         if not tasks:
@@ -1979,13 +2043,7 @@ class MainWindow(QMainWindow):
             self.progress.setValue(task_idx)
 
             name, start_pat, end_pat, ref_time_str = rule[0], rule[1], rule[2], rule[3]
-
-            try:
-                start_re = re.compile(start_pat)
-                end_re = re.compile(end_pat)
-            except re.error:
-                continue
-
+            start_re, end_re = compiled_rules[id(rule)]
             use_min = rule[4] if len(rule) >= 5 else False
 
             # 收集所有起止匹配行，end 保留捕获组值用于动态参考
@@ -2130,13 +2188,13 @@ class MainWindow(QMainWindow):
         self._show_sections(sections)
 
     def _extract_full_ts(self, line):
-        m = re.search(r'\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\]', line)
+        m = _FULL_TS_RE1.search(line)
         if m:
             return m.group(1)
-        m = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)', line)
+        m = _FULL_TS_RE2.search(line)
         if m:
             return m.group(1)
-        m = re.search(r'(\d{2}:\d{2}:\d{2}\.\d+)', line)
+        m = _FULL_TS_RE3.search(line)
         if m:
             return m.group(1)
         return self._extract_timestamp(line)
@@ -2151,7 +2209,7 @@ class MainWindow(QMainWindow):
         full_versions = []
         wifi_versions = []
 
-        for line in self.raw_content.split("\n"):
+        for line in self.raw_lines:
             m = re.search(r"get full version (\S+)", line)
             if m:
                 ts = self._extract_full_ts(line)
@@ -2202,52 +2260,24 @@ class MainWindow(QMainWindow):
         if not keywords:
             return
 
-        lines = self.raw_content.split("\n")
+        lines = self.raw_lines
         total = len(lines)
         self.progress.setMaximum(total)
         self.progress.setValue(0)
 
-        # Dual-thread: each thread scans half the lines
-        mid = total // 2
-        lock = threading.Lock()
-        done = [0]
-        results_a = {}
-        results_b = {}
-
-        def scan(start, end, store):
-            for line_idx in range(start, end):
-                line = lines[line_idx]
-                for keyword, meaning in keywords:
-                    if keyword in line:
-                        ts = self._extract_full_ts(line)
-                        store.setdefault(meaning, []).append((ts, line_idx, keyword))
-                if line_idx % 100 == 0:
-                    with lock:
-                        done[0] = max(done[0], line_idx + 1)
-
-        ta = threading.Thread(target=scan, args=(0, mid, results_a))
-        tb = threading.Thread(target=scan, args=(mid, total, results_b))
-        ta.start()
-        tb.start()
-
-        # Poll until done — keep Qt event loop alive so progress bar paints
-        while ta.is_alive() or tb.is_alive():
-            self.progress.setValue(done[0])
-            QApplication.processEvents()
-            ta.join(0.05)
-
-        self.progress.setValue(total)
-
-        # Merge results
         from collections import OrderedDict
         results = OrderedDict()
-        for store in (results_a, results_b):
-            for meaning, items in store.items():
-                results.setdefault(meaning, []).extend(items)
 
-        # Sort each group by line_idx
-        for meaning in results:
-            results[meaning].sort(key=lambda x: x[1])
+        for line_idx, line in enumerate(lines):
+            for keyword, meaning in keywords:
+                if keyword in line:
+                    ts = self._extract_full_ts(line)
+                    results.setdefault(meaning, []).append((ts, line_idx, keyword))
+            if line_idx % 1000 == 0:
+                self.progress.setValue(line_idx)
+                QApplication.processEvents()
+
+        self.progress.setValue(total)
 
         test_label = "、".join(selected_tests) if selected_tests else "全部"
         lines_found = sum(len(v) for v in results.values())
@@ -2305,14 +2335,7 @@ class MainWindow(QMainWindow):
             return
 
         def read_lines(filepath):
-            encodings = ["utf-8", "gbk", "utf-16", "latin-1"]
-            for enc in encodings:
-                try:
-                    with open(filepath, "r", encoding=enc) as f:
-                        return f.read().split("\n")
-                except UnicodeDecodeError:
-                    continue
-            return None
+            return _read_file_lines(filepath)
 
         lines1 = read_lines(path1)
         lines2 = read_lines(path2)
@@ -2353,6 +2376,7 @@ class MainWindow(QMainWindow):
         merged = [l for _, l in all_lines]
 
         self.raw_content = "\n".join(merged)
+        self.raw_lines = merged
         self._show_plain(self.raw_content)
         self.current_file = None
         self.path_label.setText(f"合并: {os.path.basename(path1)} + {os.path.basename(path2)}")
@@ -2388,13 +2412,12 @@ class MainWindow(QMainWindow):
         if not ts_str or ts_str == "--:--:--":
             return None
         ts_str = ts_str.strip("[]")
-        from datetime import datetime
         for fmt in ["%Y-%m-%d %H:%M:%S", "%y/%m/%d %H:%M:%S", "%m/%d/%y %H:%M:%S"]:
             try:
                 return datetime.strptime(ts_str, fmt).timestamp()
             except ValueError:
                 continue
-        m = re.match(r'^(\d+):(\d{2}):(\d{2})(?:\.(\d+))?$', ts_str)
+        m = _TS_PARSE_RE.match(ts_str)
         if m:
             return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3)) + float("0." + (m.group(4) or "0"))
         return None
@@ -2413,13 +2436,13 @@ class MainWindow(QMainWindow):
         if not ref_str or not ref_str.strip():
             return None
         ref = ref_str.strip().lower()
-        m = re.match(r'^(\d+):(\d{2}):(\d{2})$', ref)
+        m = _REF_HMS_RE.match(ref)
         if m:
             return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + int(m.group(3))
-        m = re.match(r'^(\d+):(\d{2})$', ref)
+        m = _REF_HM_RE.match(ref)
         if m:
             return int(m.group(1)) * 60 + int(m.group(2))
-        m = re.match(r'^([\d.]+)\s*(ms|s|m|h)?$', ref)
+        m = _REF_VAL_RE.match(ref)
         if m:
             val = float(m.group(1))
             unit = m.group(2) or "s"

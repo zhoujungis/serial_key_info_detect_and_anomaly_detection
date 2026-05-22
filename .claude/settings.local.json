@@ -22,7 +22,9 @@
       "PowerShell(python -c \"import PyQt6; print\\('PyQt6 version:', PyQt6.QtCore.PYQT_VERSION_STR\\)\"; python -c \"import requests; print\\('requests version:', requests.__version__\\)\")",
       "PowerShell(python -c \"from PyQt6 import QtCore; print\\('PyQt6 QtCore OK, v' + QtCore.PYQT_VERSION_STR\\)\")",
       "Bash(cmd *)",
-      "Bash(Remove-Item *)"
+      "Bash(Remove-Item *)",
+      "Bash(sort -t/ -k2)",
+      "PowerShell(Get-Item *)"
     ]
   }
 }
