@@ -84,6 +84,13 @@
     false
   ],
   [
+    "TF卡",
+    "mmcblk1p1 adding",
+    "gz_dp_report string 109",
+    "3",
+    false
+  ],
+  [
     "休眠唤醒",
     "start event type (\\d+), ts:",
     "\"w\":(\\d)",
@@ -92,9 +99,9 @@
   ],
   [
     "休眠唤醒",
-    "stop_record done",
+    "stop_record done|close cs",
     "device enter sleep mode!",
-    "5",
+    "2",
     true
   ],
   [
@@ -105,10 +112,17 @@
     false
   ],
   [
-    "TF卡",
-    "mmcblk1p1 adding",
-    "gz_dp_report string 109",
-    "3",
+    "休眠唤醒",
+    "device enter sleep mode!",
+    "sdk uniniting",
+    "0:2,1:0.5",
+    false
+  ],
+  [
+    "休眠唤醒",
+    "aov soc wakeup",
+    "aov long pulse",
+    "1",
     false
   ]
 ]

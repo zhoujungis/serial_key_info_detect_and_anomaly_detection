@@ -1065,7 +1065,7 @@ class MainWindow(QMainWindow):
         ver_act = QAction("版本", self)
         ver_act.triggered.connect(lambda: self._show_info_dialog(
             "版本信息", "BigBoom",
-            "V0.8", "日志关键信息分析工具"
+            "V0.9", "日志关键信息分析工具"
         ))
         help_menu.addAction(ver_act)
 
@@ -1476,8 +1476,13 @@ class MainWindow(QMainWindow):
         if merged is None:
             return
 
+        self.progress.setMaximum(1)
+        self.progress.setFormat("拼接文本中…")
+        QApplication.processEvents()
         self.raw_content = "\n".join(merged)
         self.raw_lines = merged
+        self.progress.setValue(1)
+        QApplication.processEvents()
         self.output.clear()
         self.current_file = None
         self.current_folder = folder
@@ -1515,47 +1520,101 @@ class MainWindow(QMainWindow):
     def _merge_folder_files(self, folder):
         """合并文件夹内所有 .log/.txt 文件，返回 (merged_lines, file_count, total_lines) 或 (None, 0, 0)"""
         import glob
+        import heapq
+        import itertools
+
         files = sorted(glob.glob(os.path.join(folder, "*.log")) +
                        glob.glob(os.path.join(folder, "*.txt")))
         if not files:
             QMessageBox.information(self, "提示", "所选文件夹中没有 .log 或 .txt 文件")
             return None, 0, 0
 
-        from datetime import datetime
-        ts_re = re.compile(r'\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\]')
+        # ------------------------------------------------------------------
+        # 时间戳解析：用字符串切片代替 datetime.strptime + 正则，快 50~100 倍。
+        # ISO 格式 "YYYY-MM-DD HH:MM:SS.ffffff" 天然可按字符串字典序比较。
+        # ------------------------------------------------------------------
+        def _sort_key(line):
+            start = line.find('[')
+            if start == -1:
+                return '~~~~~~~~'
+            end = line.find(']', start + 1)
+            if end == -1:
+                return '~~~~~~~~'
+            ts = line[start + 1:end]
+            if len(ts) < 19:
+                return '~~~~~~~~'
+            if len(ts) > 19 and ts[19] == '.':
+                us = ts[20:]
+                if len(us) < 6:
+                    ts = ts[:20] + us + '0' * (6 - len(us))
+                elif len(us) > 6:
+                    ts = ts[:26]
+            elif len(ts) == 19:
+                ts = ts + '.000000'
+            return ts
 
-        def parse_ts(line):
-            m = ts_re.search(line)
-            if m:
-                try:
-                    return datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S.%f").timestamp()
-                except ValueError:
-                    pass
-            return 9999999999.0
+        def _file_iter(filepath):
+            lines = _read_file_lines(filepath)
+            if lines is None:
+                return None
+            return ((_sort_key(l), l) for l in lines), len(lines)
 
-        def read_lines(filepath):
-            return _read_file_lines(filepath)
-
-        all_lines = []
+        # ------------------------------------------------------------------
+        # 同类型文件（CPU/CPU、WiFi/WiFi）时间区间不重叠，可直接拼接。
+        # 只需跨类型做 k 路归并（通常 k=2），堆深极小，每次比较 O(1)。
+        # ------------------------------------------------------------------
         file_count = len(files)
         self.progress.setMaximum(file_count)
 
-        for fi, filepath in enumerate(files):
+        # 逐个文件读取并分组。同类型文件时间区间不重叠，可直接拼接。
+        cpu_iters, wifi_iters, other_iters = [], [], []
+        total_lines = 0
+
+        for fi, f in enumerate(files):
             self.progress.setValue(fi)
-            lines = read_lines(filepath)
-            if lines is None:
+            QApplication.processEvents()
+            result = _file_iter(f)
+            if result is None:
                 continue
-            for line in lines:
-                all_lines.append((parse_ts(line), line))
+            it, lc = result
+            total_lines += lc
+            name = os.path.basename(f).lower()
+            if 'cpu' in name:
+                cpu_iters.append(it)
+            elif 'wifi' in name:
+                wifi_iters.append(it)
+            else:
+                other_iters.append(it)
 
         self.progress.setValue(file_count)
-        if not all_lines:
+        QApplication.processEvents()
+
+        merge_sources = []
+        if cpu_iters:
+            merge_sources.append(itertools.chain(*cpu_iters))
+        if wifi_iters:
+            merge_sources.append(itertools.chain(*wifi_iters))
+        merge_sources.extend(other_iters)
+
+        if not merge_sources:
             QMessageBox.information(self, "提示", "没有可读取的内容")
             self.progress.setValue(0)
             return None, 0, 0
 
-        all_lines.sort(key=lambda x: x[0])
-        merged = [l for _, l in all_lines]
+        # k 路归并（通常 k=2：CPU 流 + WiFi 流），带进度
+        self.progress.setMaximum(total_lines)
+        self.progress.setFormat("合并排序中… %p%")
+        QApplication.processEvents()
+
+        merged = []
+        for li, (_, line) in enumerate(heapq.merge(*merge_sources, key=lambda x: x[0])):
+            merged.append(line)
+            if li % 5000 == 0:
+                self.progress.setValue(li)
+                QApplication.processEvents()
+
+        self.progress.setValue(total_lines)
+        self.progress.setFormat("%p%")
         return merged, file_count, len(merged)
 
     def save_file(self):
@@ -1643,7 +1702,7 @@ class MainWindow(QMainWindow):
                 # ── Page header ──
                 canvas.setFont(font_name, 7)
                 canvas.setFillColor(colors.HexColor("#c0c5ce"))
-                canvas.drawString(22 * mm, ch - 16 * mm, "BigBoom V0.8  ·  日志关键信息分析报告")
+                canvas.drawString(22 * mm, ch - 16 * mm, "BigBoom V0.9  ·  日志关键信息分析报告")
                 canvas.drawRightString(cw - 22 * mm, ch - 16 * mm,
                     datetime.now().strftime("%Y-%m-%d %H:%M"))
 
@@ -2260,6 +2319,10 @@ class MainWindow(QMainWindow):
         if not keywords:
             return
 
+        # 将所有关键字编译成一个正则交替式，作为快速预过滤器。
+        # 只有命中关键字的行才进入逐关键字检查，避免每行都做 O(M) 次 substring。
+        combined_re = re.compile('|'.join(re.escape(kw) for kw, _ in keywords))
+
         lines = self.raw_lines
         total = len(lines)
         self.progress.setMaximum(total)
@@ -2269,10 +2332,11 @@ class MainWindow(QMainWindow):
         results = OrderedDict()
 
         for line_idx, line in enumerate(lines):
-            for keyword, meaning in keywords:
-                if keyword in line:
-                    ts = self._extract_full_ts(line)
-                    results.setdefault(meaning, []).append((ts, line_idx, keyword))
+            if combined_re.search(line):
+                for keyword, meaning in keywords:
+                    if keyword in line:
+                        ts = self._extract_full_ts(line)
+                        results.setdefault(meaning, []).append((ts, line_idx, keyword))
             if line_idx % 1000 == 0:
                 self.progress.setValue(line_idx)
                 QApplication.processEvents()
@@ -2334,46 +2398,43 @@ class MainWindow(QMainWindow):
         if not path2:
             return
 
-        def read_lines(filepath):
-            return _read_file_lines(filepath)
-
-        lines1 = read_lines(path1)
-        lines2 = read_lines(path2)
+        lines1 = _read_file_lines(path1)
+        lines2 = _read_file_lines(path2)
         if lines1 is None or lines2 is None:
             QMessageBox.critical(self, "错误", "无法识别文件编码")
             return
 
-        from datetime import datetime
+        import heapq
 
-        ts_re = re.compile(r'\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\]')
-
-        def parse_ts(line):
-            m = ts_re.search(line)
-            if m:
-                try:
-                    return datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S.%f").timestamp()
-                except ValueError:
-                    pass
-            return 9999999999.0
+        def _sort_key(line):
+            start = line.find('[')
+            if start == -1:
+                return '~~~~~~~~'
+            end = line.find(']', start + 1)
+            if end == -1:
+                return '~~~~~~~~'
+            ts = line[start + 1:end]
+            if len(ts) < 19:
+                return '~~~~~~~~'
+            if len(ts) > 19 and ts[19] == '.':
+                us = ts[20:]
+                if len(us) < 6:
+                    ts = ts[:20] + us + '0' * (6 - len(us))
+                elif len(us) > 6:
+                    ts = ts[:26]
+            elif len(ts) == 19:
+                ts = ts + '.000000'
+            return ts
 
         total = len(lines1) + len(lines2)
         self.progress.setMaximum(total)
 
-        all_lines = []
-        for i, l in enumerate(lines1):
-            all_lines.append((parse_ts(l), l))
-            if i % 5000 == 0:
-                self.progress.setValue(len(all_lines))
-
-        for i, l in enumerate(lines2):
-            all_lines.append((parse_ts(l), l))
-            if i % 5000 == 0:
-                self.progress.setValue(len(all_lines))
+        # 每个文件内部已有序，2 路归并
+        it1 = ((_sort_key(l), l) for l in lines1)
+        it2 = ((_sort_key(l), l) for l in lines2)
+        merged = [line for _, line in heapq.merge(it1, it2, key=lambda x: x[0])]
 
         self.progress.setValue(total)
-        all_lines.sort(key=lambda x: x[0])
-
-        merged = [l for _, l in all_lines]
 
         self.raw_content = "\n".join(merged)
         self.raw_lines = merged
