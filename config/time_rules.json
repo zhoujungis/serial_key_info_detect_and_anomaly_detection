@@ -28,20 +28,6 @@
     false
   ],
   [
-    "RESET",
-    "get ip:",
-    "send reset to T41",
-    "840",
-    false
-  ],
-  [
-    "RESET",
-    "finish play /usr/bin/audio/reset",
-    "gz_ble_start \\+\\+\\+\\+\\+\\+\\+\\+",
-    "30",
-    false
-  ],
-  [
     "卡刷OTA升级",
     "gz_sys_upgrade_ex start updating wifi",
     "gz_sys_upgrade_ex wifi update result: 0",
@@ -123,6 +109,20 @@
     "aov soc wakeup",
     "aov long pulse",
     "1",
+    false
+  ],
+  [
+    "RESET",
+    "send reset to T41",
+    "get ip:",
+    "840",
+    false
+  ],
+  [
+    "RESET",
+    "finish play /usr/bin/audio/reset",
+    "gz_ble_start \\+\\+\\+\\+\\+\\+\\+\\+",
+    "30",
     false
   ]
 ]

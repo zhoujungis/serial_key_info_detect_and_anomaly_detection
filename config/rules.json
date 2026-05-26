@@ -1,6 +1,12 @@
 {
   "RESET": [
     [
+      "send reset to T41",
+      "reset",
+      true,
+      ""
+    ],
+    [
       "play audio file /usr/bin/audio/reset",
       "reset提示音",
       true,
@@ -45,18 +51,6 @@
     [
       "get ip:",
       "WiFi重连",
-      true,
-      ""
-    ],
-    [
-      "send reset to T41",
-      "reset",
-      true,
-      ""
-    ],
-    [
-      "reset gpio:1",
-      "reset,reset gpio:1",
       true,
       ""
     ],
@@ -313,17 +307,17 @@
     [
       "设备SN",
       "gz sn (\\S+)",
-      "C9E31A010000316"
+      "C9E31A010000143"
     ],
     [
       "主控版本",
       "get full version (\\S+)",
-      "ZY_C9E31_20260522.3.0.43"
+      "ZY_C9E31_20260430.3.0.26"
     ],
     [
       "Wi-Fi版本",
       "get wifi ver (\\S+)",
-      "B4_20260521.2.7.18"
+      "B4_20260430.2.7.9"
     ]
   ],
   "TF卡": [

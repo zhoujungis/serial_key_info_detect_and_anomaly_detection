@@ -1,734 +1,758 @@
 [
   [
-    "RESET",
-    "ROMBoot startup",
-    "异常重启",
-    true
-  ],
-  [
-    "RESET",
-    "i:version",
-    "异常重启",
-    true
-  ],
-  [
-    "绑定解绑",
-    "play audio file /usr/bin/audio/us/connect_timeout",
-    "绑定失败",
-    true
-  ],
-  [
-    "绑定解绑",
-    "ROMBoot startup",
-    "异常重启",
-    true
-  ],
-  [
-    "绑定解绑",
-    "i:version",
-    "异常重启",
-    true
-  ],
-  [
-    "卡刷OTA升级",
-    "gz_sys_upgrade_ex wifi update result: -1",
-    "Wi-Fi升级失败",
-    true
-  ],
-  [
-    "卡刷OTA升级",
-    "upgrade dsp send firmware fail",
-    "基站发包失败",
-    true
-  ],
-  [
-    "卡刷OTA升级",
-    "by low power",
-    "低电量不升级",
-    true
-  ],
-  [
-    "卡刷OTA升级",
-    "s_radar_upgrade_result: -1",
-    "雷达升级失败",
-    true
-  ],
-  [
-    "卡刷OTA升级",
-    "s_mcu_upgrade_result: -1",
-    "MCU升级失败",
-    true
-  ],
-  [
-    "卡刷OTA升级",
-    "upgrade result:-1",
-    "主控升级失败",
-    true
-  ],
-  [
-    "卡刷OTA升级",
-    "download finish result -15",
-    "OTA下载固件包失败",
-    true
-  ],
-  [
-    "卡刷OTA升级",
-    "s_radar_upgrade_result:255",
-    "雷达升级失败",
-    true
-  ],
-  [
-    "开关机",
-    "mount failed",
-    "TF卡挂载失败",
-    true
-  ],
-  [
-    "休眠唤醒",
-    "ROMBoot startup",
-    "异常重启",
-    true
-  ],
-  [
-    "休眠唤醒",
-    "i:version",
-    "异常重启",
-    true
-  ],
-  [
     "通用",
     "IMP_Encoder_PollingStream",
     "异常日志：CPU或内存跑满",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "mmc det failed during system startup",
     "TF卡 失败检测失败的log",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "coredump",
     "崩溃，留意SD内是否有coredump文件",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "Kernel panic",
     "内核崩溃",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "gz_hal_video_catchyuv IMP_FrameSource_GetFrame failed: ffffffff",
-    "视频编码相关",
+    "视频编码相关1",
+    true,
     true
   ],
   [
     "通用",
     "gz_video_input_catch_yuv capture yuv error: -1",
-    "视频编码相关",
+    "视频编码相关2",
+    true,
     true
   ],
   [
     "通用",
     "times from system start exceed 20S",
     "内核启动异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "plat soc:Elhcc reinit failed",
-    "WiFi驱动异常",
-    true
+    "WiFi驱动异常1",
+    true,
+    false
   ],
   [
     "通用",
     "pm ble open failed",
-    "WiFi驱动异常",
-    true
+    "WiFi驱动异常2",
+    true,
+    false
   ],
   [
     "通用",
     "can't free",
     "回收系统资源异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "ble hwbt filenode open fail",
     "开启蓝牙失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "mmc0: error -145",
-    "存储卡错误信息",
-    true
+    "存储卡错误信息1",
+    true,
+    false
   ],
   [
     "通用",
     "mmc0: error -159",
-    "存储卡错误信息",
-    true
+    "存储卡错误信息2",
+    true,
+    false
   ],
   [
     "通用",
     "mmc0: error -110",
-    "存储卡错误信息",
-    true
+    "存储卡错误信息3",
+    true,
+    false
   ],
   [
     "通用",
     "open /dev/atbm_ioctl fail",
     "WiFi驱动异常日志",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "recv SIGFPE signal",
     "L5P-3A崩溃问题，信号屏蔽日志",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "is blocked",
     "云台阻塞，补丁日志",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "download finish result -15",
     "OTA升级，下载固件包失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "downlaod file fail:-15",
     "涂鸦下载失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "host startup time:3",
     "6441启动超过3秒",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "host startup time:4",
     "6441启动超过4秒",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "electricity meter type:-1",
     "I2C通信异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "err:aich i2c_write failed",
     "I2C通信异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "wake failed",
-    "唤醒失败。",
-    true
+    "唤醒失败",
+    true,
+    false
   ],
   [
     "通用",
     "[SDK]: gz_dev_power_manager_set_status set pm status error: -1",
     "T41异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "HAL_I2C_Bus_State timeout",
-    "6441读取异常",
-    true
+    "6441读取异常1",
+    true,
+    false
   ],
   [
     "通用",
     "HAL_I2C_Master_Receive fail",
-    "6441读取异常",
-    true
+    "6441读取异常2",
+    true,
+    false
   ],
   [
     "通用",
     "MemAddress:0x6 Read fail",
-    "6441读取异常",
-    true
+    "6441读取异常3",
+    true,
+    false
   ],
   [
     "通用",
     "atbm_ioctl_notify_add: status event list is full",
     "6441异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "Out of memory",
     "内存崩溃",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "xm_video_person_face_callback err",
     "ai报错打印",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "spi communication fail!",
     "SPI异常相关",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "gop error",
     "T41 帧率异常（丢帧）",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "oom-killer",
     "oom",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "plat_soc:E]wifi_power_on_fail",
-    "Wi-Fi驱动异常",
-    true
+    "Wi-Fi驱动异常1",
+    true,
+    false
   ],
   [
     "通用",
     "plat_soc:E]hcc reinit failed!",
-    "Wi-Fi驱动异常",
-    true
+    "Wi-Fi驱动异常2",
+    true,
+    false
   ],
   [
     "通用",
     "over size",
     "超大帧涂鸦不接收",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "can't get kernel image",
     "内核被破坏",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "Warning - bad CRC, using default environment",
     "环境变量被破坏",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "mmc1: error -110 whilst initialising SD card",
     "L5P插卡后未识别卡，而且有报错打印",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "Hal SDMMc SendcmdAndWaitProcess",
-    "sigmastar平台存储卡报错",
-    true
+    "sigmastar平台存储卡报错1",
+    true,
+    false
   ],
   [
     "通用",
     "[sdmmc 1] Err",
-    "sigmastar平台存储卡报错",
-    true
+    "sigmastar平台存储卡报错2",
+    true,
+    false
   ],
   [
     "通用",
     "Cannotsend cmd dataerror=",
     "千从C2Ewifi驱动异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "catch jpeg fail",
-    "抓图失败",
-    true
+    "抓图失败1",
+    true,
+    false
   ],
   [
     "通用",
     "catch panorama jpeg fail",
-    "抓图失败",
-    true
+    "抓图失败2",
+    true,
+    false
   ],
   [
     "通用",
     "AL_Encoder_SetMaxBitRate failed",
     "码率过大导致不出流",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "ptz open fail, can't find /dev/motor",
     "云台驱动加载失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "radar upgrade failed",
     "V8S雷达升级失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "err:heartbeat",
-    "6262L异常",
-    true
+    "6262L异常1",
+    true,
+    false
   ],
   [
     "通用",
     "ATT?Timeout",
-    "6262L异常",
-    true
+    "6262L异常2",
+    true,
+    false
   ],
   [
     "通用",
     "gz_hal_video_catchyuv AX_IVPS_GetChnFrame failed: 800d0120",
     "爱芯异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "wait result timeout",
-    "主控与WiFi通信异常",
-    true
+    "主控与WiFi通信异常1",
+    true,
+    false
   ],
   [
     "通用",
     "get battery info failed",
-    "主控与WiFi通信异常",
+    "主控与WiFi通信异常2",
+    true,
     true
   ],
   [
     "通用",
     "mcu get battery level result: -3",
-    "主控与WiFi通信异常",
-    true
+    "主控与WiFi通信异常3",
+    true,
+    false
   ],
   [
     "通用",
     "wifi_module_get_battery_info fail",
-    "主控与WiFi通信异常",
+    "主控与WiFi通信异常4",
+    true,
     true
   ],
   [
     "通用",
     "e:ble?w?wait?timeout",
-    "6262L异常",
-    true
+    "6262L异常3",
+    true,
+    false
   ],
   [
     "通用",
     "aich wifi sta scan failed",
-    "6262L异常",
-    true
+    "6262L异常4",
+    true,
+    false
   ],
   [
     "通用",
     "luke m_first_wakeup_reason:33792",
     "充电异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "mcu is abnormal",
-    "L5P MCU异常",
-    true
+    "L5P MCU异常1",
+    true,
+    false
   ],
   [
     "通用",
     "mcu upgrade ret:-1",
-    "L5P MCU异常",
-    true
+    "L5P MCU异常2",
+    true,
+    false
   ],
   [
     "通用",
     "USB disconnect",
     "3566:8152断连",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "ASSERT",
-    "6262L异常",
-    true
+    "6262L异常5",
+    true,
+    false
   ],
   [
     "通用",
     "hcc tx buf que is full",
     "6262L异常[WIFI-HCC]",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "free buf error",
     "6262L异常[WIFI-HCC]",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "wifi_module_get_aplist fail",
-    "6262L异常",
-    true
+    "6262L异常6",
+    true,
+    false
   ],
   [
     "通用",
     "gz_api_process_thread ap list count: 0, result: -3",
-    "6262L异常",
-    true
+    "6262L异常7",
+    true,
+    false
   ],
   [
     "通用",
     "get wifi list ret:-3",
-    "6262L异常",
-    true
+    "6262L异常8",
+    true,
+    false
   ],
   [
     "通用",
     "sync cmd:4 res:-3",
-    "6262L异常",
-    true
+    "6262L异常9",
+    true,
+    false
   ],
   [
     "通用",
     "Trace: ba_push",
     "6262L爱旗关键字",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "wpa_scan fail",
-    "6262L异常：扫描WiFi异常",
-    true
+    "6262L异常：扫描WiFi异常1",
+    true,
+    false
   ],
   [
     "通用",
     "e:wifi_ctrl_thr: aich_wifi_sta_scan failed",
-    "6262L异常：扫描WiFi异常",
-    true
+    "6262L异常：扫描WiFi异常2",
+    true,
+    false
   ],
   [
     "通用",
     "host timeout",
-    "6262L异常",
-    true
+    "6262L异常10",
+    true,
+    false
   ],
   [
     "通用",
     "ROCKIVA_Init failed",
     "主控-ROCKIVA_Init failed",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "wait wifi init",
     "WiFi初始化失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "[WIFI-HCC]:hcc send rx data(0x2c) to host timeout(1s), discard it",
     "主控与WiFi通信异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "wifi_module_ble_stop fail",
-    "6262L异常",
-    true
+    "6262L异常11",
+    true,
+    false
   ],
   [
     "通用",
     "gz_sys_upgrade_ex radar update error",
     "雷达异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "wpa cmd timeout",
-    "6262L异常",
-    true
+    "6262L异常12",
+    true,
+    false
   ],
   [
     "通用",
     "hcc invalid pkt_len",
-    "6262L异常",
-    true
+    "6262L异常13",
+    true,
+    false
   ],
   [
     "通用",
     "discard it",
-    "6262L异常",
-    true
+    "6262L异常14",
+    true,
+    false
   ],
   [
     "通用",
     "aich_reset_soft",
-    "6262L异常",
-    true
+    "6262L异常15",
+    true,
+    false
   ],
   [
     "通用",
     "mmc0: error",
     "主控异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "[BLE]:Not connected",
-    "6262L异常",
-    true
+    "6262L异常16",
+    true,
+    false
   ],
   [
     "通用",
     "e:hb reset host",
     "WiFi与主控心跳超时重启",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "s_radar_upgrade_result:-1",
     "雷达升级失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "s_radar_upgrade_result:255",
     "雷达升级失败，i2c通信fail",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "wifi update result：-1",
     "6262L升级失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "httpc_ipc_cloud_storage_event_notify fail ret[-4378]",
     "云存上传失败-H2L",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "[0.U] buffer full",
     "基站这边没有收到头的数据，头端有报错",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "aich_wifi_sta_scan_results failed",
     "wifi列表扫描失败",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "CPU EXCEPTION NO.32",
     "6262L崩溃",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "dp_report 110->2",
     "卡异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "dp_report 110->3",
     "卡空间不足",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "/dev/mmcblk1p1 /tmp/mmcblk0p1 vfat ro,noatime,nodiratime",
     "可读不可写",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "gz_dp_report prop 110->2",
     "卡异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "gz_dp_report prop 110->3",
     "卡空间不足",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "Segmentation fault",
     "程序段错误",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "Aborted",
-    "程序异常退出",
-    true
+    "程序异常退出1",
+    true,
+    false
   ],
   [
     "通用",
     "Bus error",
-    "程序异常退出",
-    true
+    "程序异常退出2",
+    true,
+    false
   ],
   [
     "通用",
     "Illegal instruction",
     "非法指令集崩溃",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "MQTT PUBLISH failed with status MQTTNoMemory",
     "mqtt异常",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "venc_release 6",
     "程序段错误",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "RK_MPI_VENC_GetStream Failure:",
     "主控-RK_MPI_VENC_GetStream:",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "ROCKIVA_Init failed",
     "主控-ROCKIVA_Init failed",
-    true
+    true,
+    false
   ],
   [
     "通用",
     "2cmotor_driver 3-0010: I2C transfer failed: -6",
     "马达驱动报错，需研发现场分析",
-    true
+    true,
+    false
   ],
   [
     "通用",
-    "reset reason 0|reset reason 1|reset reason 2",
-    "Wi-Fi重启原因",
-    true
+    "reset reason 0",
+    "Wi-Fi重启原因reason0",
+    true,
+    false
+  ],
+  [
+    "通用",
+    "reset reason 1",
+    "Wi-Fi重启原因reason1",
+    true,
+    false
+  ],
+  [
+    "通用",
+    "reset reason 2",
+    "Wi-Fi重启原因reason2",
+    true,
+    false
   ]
 ]

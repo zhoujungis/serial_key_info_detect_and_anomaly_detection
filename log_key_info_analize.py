@@ -346,17 +346,17 @@ def _read_file_lines(path):
     return content.split("\n")
 
 
-# Pre-compiled regex for hot-path timestamp extraction (called millions of times)
-_TS_PATTERNS = [
-    re.compile(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})'),
-    re.compile(r'\[(\d{2}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\]'),
-    re.compile(r'(\d{2}:\d{2}:\d{2}\.\d+)'),
-    re.compile(r'(\d{2}:\d{2}:\d{2})'),
-]
-
-_FULL_TS_RE1 = re.compile(r'\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\]')
-_FULL_TS_RE2 = re.compile(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)')
-_FULL_TS_RE3 = re.compile(r'(\d{2}:\d{2}:\d{2}\.\d+)')
+# Single combined timestamp regex — replaces the 7 separate patterns above.
+# Groups are ordered by priority (most specific first); use m.lastindex to
+# find which one matched.  This turns ~7 regex calls per extraction into 1.
+_TIMESTAMP_RE = re.compile(
+    r'\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\]'   # [2024-01-15 10:30:45.123456]
+    r'|(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)'       # 2024-01-15 10:30:45.123456
+    r'|(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})'            # 2024-01-15 10:30:45
+    r'|\[(\d{2}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2})\]'        # [YY/MM/DD HH:MM:SS]
+    r'|(\d{2}:\d{2}:\d{2}\.\d+)'                           # HH:MM:SS.micro
+    r'|(\d{2}:\d{2}:\d{2})'                                 # HH:MM:SS
+)
 _TS_PARSE_RE = re.compile(r'^(\d+):(\d{2}):(\d{2})(?:\.(\d+))?$')
 _REF_HMS_RE = re.compile(r'^(\d+):(\d{2}):(\d{2})$')
 _REF_HM_RE = re.compile(r'^(\d+):(\d{2})$')
@@ -698,17 +698,18 @@ class AnomalyDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
 
-        hint = QLabel("可增删行。第一列为测试选择，第二列为关键字，第三列为含义，第四列勾选启用")
+        hint = QLabel("可增删行。第一列为测试选择，第二列为关键字，第三列为含义，第四列勾选启用，第五列勾选仅显示次数")
         hint.setStyleSheet("color: gray")
         layout.addWidget(hint)
 
         self.table = QTableWidget()
-        self.table.setColumnCount(4)
-        self.table.setHorizontalHeaderLabels(["测试选择", "关键字", "含义", "启用"])
+        self.table.setColumnCount(5)
+        self.table.setHorizontalHeaderLabels(["测试选择", "关键字", "含义", "启用", "仅显示次数"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self.table.verticalHeader().hide()
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setFont(QFont("Microsoft YaHei UI", 10))
@@ -746,6 +747,7 @@ class AnomalyDialog(QDialog):
             pattern = rule[1] if len(rule) >= 2 else ""
             meaning = rule[2] if len(rule) >= 3 else ""
             enabled = rule[3] if len(rule) >= 4 else True
+            count_only = rule[4] if len(rule) >= 5 else False
             item = QTableWidgetItem(test)
             item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.table.setItem(i, 0, item)
@@ -755,6 +757,10 @@ class AnomalyDialog(QDialog):
             cb.setFlags(cb.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             cb.setCheckState(Qt.CheckState.Checked if enabled else Qt.CheckState.Unchecked)
             self.table.setItem(i, 3, cb)
+            cb2 = QTableWidgetItem()
+            cb2.setFlags(cb2.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            cb2.setCheckState(Qt.CheckState.Checked if count_only else Qt.CheckState.Unchecked)
+            self.table.setItem(i, 4, cb2)
 
     def _sort_by_test(self):
         rows = []
@@ -764,7 +770,9 @@ class AnomalyDialog(QDialog):
             meaning = self.table.item(r, 2).text().strip() if self.table.item(r, 2) else ""
             cb = self.table.item(r, 3)
             enabled = cb.checkState() == Qt.CheckState.Checked if cb else True
-            rows.append([test, pattern, meaning, enabled])
+            cb2 = self.table.item(r, 4)
+            count_only = cb2.checkState() == Qt.CheckState.Checked if cb2 else False
+            rows.append([test, pattern, meaning, enabled, count_only])
         order = {n: i for i, n in enumerate(self.all_test_names)}
         rows.sort(key=lambda r: order.get(r[0], 999))
         self.table.setRowCount(0)
@@ -789,6 +797,10 @@ class AnomalyDialog(QDialog):
         cb.setFlags(cb.flags() | Qt.ItemFlag.ItemIsUserCheckable)
         cb.setCheckState(Qt.CheckState.Checked)
         self.table.setItem(row, 3, cb)
+        cb2 = QTableWidgetItem()
+        cb2.setFlags(cb2.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+        cb2.setCheckState(Qt.CheckState.Unchecked)
+        self.table.setItem(row, 4, cb2)
         self._sort_by_test()
         for r in range(self.table.rowCount()):
             if self.table.item(r, 0).text().strip() == name:
@@ -810,8 +822,10 @@ class AnomalyDialog(QDialog):
             meaning = self.table.item(r, 2).text().strip() if self.table.item(r, 2) else ""
             cb = self.table.item(r, 3)
             enabled = cb.checkState() == Qt.CheckState.Checked if cb else True
+            cb2 = self.table.item(r, 4)
+            count_only = cb2.checkState() == Qt.CheckState.Checked if cb2 else False
             if pattern:
-                merged.append([test, pattern, meaning, enabled])
+                merged.append([test, pattern, meaning, enabled, count_only])
         save_anomaly_rules(merged)
         QMessageBox.information(self, "成功", "异常配置已保存")
 
@@ -900,6 +914,7 @@ class MainWindow(QMainWindow):
 
         self.current_file = None
         self.current_folder = None
+        self.current_multi_folder = None
         self.raw_content = ""
         self.raw_lines = []
         self._last_sections = []
@@ -931,6 +946,11 @@ class MainWindow(QMainWindow):
         open_folder_shortcut.triggered.connect(self.open_folder)
         self.addAction(open_folder_shortcut)
 
+        multi_folder_shortcut = QAction("打开多设备文件夹", self)
+        multi_folder_shortcut.setShortcut("Ctrl+Shift+D")
+        multi_folder_shortcut.triggered.connect(self.open_multi_device_folder)
+        self.addAction(multi_folder_shortcut)
+
         saveas_shortcut = QAction("另存为", self)
         saveas_shortcut.setShortcut("Ctrl+Shift+S")
         saveas_shortcut.triggered.connect(self.save_as_file)
@@ -950,6 +970,10 @@ class MainWindow(QMainWindow):
         open_folder_act = QAction("打开文件夹    Ctrl+D", self)
         open_folder_act.triggered.connect(self.open_folder)
         file_menu.addAction(open_folder_act)
+
+        multi_folder_act = QAction("打开多设备文件夹    Ctrl+Shift+D", self)
+        multi_folder_act.triggered.connect(self.open_multi_device_folder)
+        file_menu.addAction(multi_folder_act)
 
         saveas_act = QAction("导出PDF    Ctrl+Shift+S", self)
         saveas_act.triggered.connect(self.save_as_file)
@@ -1065,7 +1089,7 @@ class MainWindow(QMainWindow):
         ver_act = QAction("版本", self)
         ver_act.triggered.connect(lambda: self._show_info_dialog(
             "版本信息", "BigBoom",
-            "V0.9", "日志关键信息分析工具"
+            "V0.99", "日志关键信息分析工具"
         ))
         help_menu.addAction(ver_act)
 
@@ -1434,6 +1458,7 @@ class MainWindow(QMainWindow):
         self.output.clear()
         self.current_file = None
         self.current_folder = None
+        self.current_multi_folder = None
         self.raw_content = ""
         self.raw_lines = []
         self.last_analysis = None
@@ -1496,8 +1521,115 @@ class MainWindow(QMainWindow):
         )
         self.setWindowTitle(f"日志关键信息分析 - {os.path.basename(folder)}")
         self.progress.setValue(0)
+        self.progress.setFormat("%p%")
 
         self._extract_device_info(self.raw_content)
+
+    def open_multi_device_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "打开多设备文件夹")
+        if not folder:
+            return
+
+        subdirs = [os.path.join(folder, d) for d in os.listdir(folder)
+                   if os.path.isdir(os.path.join(folder, d))]
+        subdirs.sort()
+
+        if not subdirs:
+            QMessageBox.information(self, "提示", "所选文件夹中没有子文件夹")
+            return
+
+        if self.realtime_running:
+            self._stop_realtime()
+
+        saved_content = self.raw_content
+        saved_lines = self.raw_lines
+        saved_file = self.current_file
+        saved_folder = self.current_folder
+
+        self.current_file = None
+        self.current_folder = None
+
+        all_sections = []
+        total_devices = len(subdirs)
+
+        for di, subdir in enumerate(subdirs):
+            device_name = os.path.basename(subdir)
+            self.progress.setFormat(f"处理设备 {di + 1}/{total_devices}: {device_name} … %p%")
+            self.progress.setValue(0)
+            QApplication.processEvents()
+
+            merged, file_count, total_lines = self._merge_folder_files(subdir)
+            if merged is None:
+                continue
+
+            self.raw_content = "\n".join(merged)
+            self.raw_lines = merged
+            self._extract_device_info(self.raw_content)
+
+            device_sections = self._run_device_analysis(device_name, file_count, total_lines)
+            all_sections.extend(device_sections)
+
+        self.raw_content = saved_content
+        self.raw_lines = saved_lines
+        self.current_file = saved_file
+        self.current_folder = saved_folder
+        self.current_multi_folder = folder
+
+        self.progress.setFormat("%p%")
+        self.progress.setValue(0)
+        self._last_sections = all_sections
+        self._show_sections(all_sections)
+        self.path_label.setText(
+            f"多设备文件夹: {folder}  ·  {total_devices} 个设备"
+        )
+        self.path_label.setStyleSheet(
+            "padding: 5px 14px; background: #eaecef; "
+            "border-bottom: 1px solid #c8ccd1; color: #1f2937;"
+        )
+        self.setWindowTitle(f"日志关键信息分析 - 多设备 {os.path.basename(folder)}")
+        QMessageBox.information(self, "完成", f"已完成 {total_devices} 个设备的分析")
+
+    def _run_device_analysis(self, device_name, file_count, total_lines):
+        sections = []
+
+        def _clean(secs):
+            return [(t, l) for t, l in secs if "设备信息" not in t and "异常检测" not in t]
+
+        # 设备头部：文件夹名 + 设备信息
+        device_info = load_device_info()
+        header_lines = [f"文件夹: {device_name}", f"文件: {file_count} 个, {total_lines} 行"]
+        for row in device_info:
+            nm = row[0]
+            info = row[2] if len(row) >= 3 else ""
+            if info:
+                header_lines.append(f"{nm}: {info}")
+        sections.append((f"▍设备: {device_name}", header_lines))
+
+        # 关键打印
+        self.progress.setFormat(f"{device_name} - 关键打印… %p%")
+        QApplication.processEvents()
+        self.run_match(silent=True)
+        if self._last_sections:
+            sections.append((f"▍{device_name} - 关键打印", []))
+            sections.extend(_clean(self._last_sections))
+
+        # 关键时间
+        self.progress.setFormat(f"{device_name} - 关键时间… %p%")
+        QApplication.processEvents()
+        self.run_keytime(silent=True)
+        if self._last_sections:
+            sections.append((f"▍{device_name} - 关键时间", []))
+            sections.extend(_clean(self._last_sections))
+
+        # 异常检测
+        self.progress.setFormat(f"{device_name} - 异常检测… %p%")
+        QApplication.processEvents()
+        self.run_anomaly(silent=True)
+        if self._last_sections:
+            sections.append((f"▍{device_name} - 异常检测", []))
+            sections.extend(_clean(self._last_sections))
+
+        return sections
 
     def _extract_device_info(self, content):
         device_info = load_device_info()
@@ -1702,7 +1834,7 @@ class MainWindow(QMainWindow):
                 # ── Page header ──
                 canvas.setFont(font_name, 7)
                 canvas.setFillColor(colors.HexColor("#c0c5ce"))
-                canvas.drawString(22 * mm, ch - 16 * mm, "BigBoom V0.9  ·  日志关键信息分析报告")
+                canvas.drawString(22 * mm, ch - 16 * mm, "BigBoom V0.99  ·  日志关键信息分析报告")
                 canvas.drawRightString(cw - 22 * mm, ch - 16 * mm,
                     datetime.now().strftime("%Y-%m-%d %H:%M"))
 
@@ -1759,10 +1891,9 @@ class MainWindow(QMainWindow):
     def _extract_timestamp(self, line):
         if not line:
             return "--:--:--"
-        for p in _TS_PATTERNS:
-            m = p.search(line)
-            if m:
-                return m.group(1)
+        m = _TIMESTAMP_RE.search(line)
+        if m:
+            return m.group(m.lastindex)
         return "--:--:--"
 
     def run_all(self, silent=False):
@@ -1874,8 +2005,11 @@ class MainWindow(QMainWindow):
 
         self.progress.setMaximum(total)
         self.progress.setValue(0)
+        self.progress.setFormat("关键打印… %p%")
 
         for line_idx, line in enumerate(lines):
+            if not line:
+                continue
             for tn, kws in test_keywords.items():
                 state = states[tn]
                 first_cre, first_pat, first_meaning, _ = kws[0]
@@ -1927,7 +2061,7 @@ class MainWindow(QMainWindow):
                         state['seen'][kw_idx] = line_idx
                         break
 
-            if line_idx % 1000 == 0:
+            if line_idx % 5000 == 0:
                 self.progress.setValue(line_idx)
                 QApplication.processEvents()
 
@@ -2089,6 +2223,7 @@ class MainWindow(QMainWindow):
 
         self.progress.setMaximum(len(tasks))
         self.progress.setValue(0)
+        self.progress.setFormat("关键时间… %p%")
 
         # 先收集所有失败项，按 (test_name, rule) 分组
         from collections import OrderedDict
@@ -2247,16 +2382,10 @@ class MainWindow(QMainWindow):
         self._show_sections(sections)
 
     def _extract_full_ts(self, line):
-        m = _FULL_TS_RE1.search(line)
+        m = _TIMESTAMP_RE.search(line)
         if m:
-            return m.group(1)
-        m = _FULL_TS_RE2.search(line)
-        if m:
-            return m.group(1)
-        m = _FULL_TS_RE3.search(line)
-        if m:
-            return m.group(1)
-        return self._extract_timestamp(line)
+            return m.group(m.lastindex)
+        return "--:--:--"
 
     def run_upgrade_version(self, silent=False):
         if not self.raw_content:
@@ -2319,6 +2448,8 @@ class MainWindow(QMainWindow):
         if not keywords:
             return
 
+        count_only_map = {r[2]: (r[4] if len(r) >= 5 else False) for r in rules if r[1]}
+
         # 将所有关键字编译成一个正则交替式，作为快速预过滤器。
         # 只有命中关键字的行才进入逐关键字检查，避免每行都做 O(M) 次 substring。
         combined_re = re.compile('|'.join(re.escape(kw) for kw, _ in keywords))
@@ -2327,17 +2458,22 @@ class MainWindow(QMainWindow):
         total = len(lines)
         self.progress.setMaximum(total)
         self.progress.setValue(0)
+        self.progress.setFormat("异常检测… %p%")
 
         from collections import OrderedDict
         results = OrderedDict()
 
         for line_idx, line in enumerate(lines):
+            if not line:
+                continue
             if combined_re.search(line):
+                ts = None
                 for keyword, meaning in keywords:
                     if keyword in line:
-                        ts = self._extract_full_ts(line)
+                        if ts is None:
+                            ts = self._extract_full_ts(line)
                         results.setdefault(meaning, []).append((ts, line_idx, keyword))
-            if line_idx % 1000 == 0:
+            if line_idx % 5000 == 0:
                 self.progress.setValue(line_idx)
                 QApplication.processEvents()
 
@@ -2375,10 +2511,19 @@ class MainWindow(QMainWindow):
         # 详细结果
         detail_lines = []
         for meaning, matches in results.items():
-            detail_lines.append(f"【{meaning}】 ({len(matches)} 条)")
-            for i, (ts, line_idx, keyword) in enumerate(matches, 1):
-                snippet = keyword if len(keyword) <= 120 else keyword[:117] + "..."
-                detail_lines.append(f"  {i:>4}. [{ts}] 行{line_idx + 1}  {snippet}")
+            if count_only_map.get(meaning, False):
+                detail_lines.append(f"【{meaning}】 ({len(matches)} 条)")
+                kw_counts = {}
+                for _, _, kw in matches:
+                    kw_counts[kw] = kw_counts.get(kw, 0) + 1
+                for kw, cnt in kw_counts.items():
+                    snippet = kw if len(kw) <= 80 else kw[:77] + "..."
+                    detail_lines.append(f"  {snippet}: {cnt}次")
+            else:
+                detail_lines.append(f"【{meaning}】 ({len(matches)} 条)")
+                for i, (ts, line_idx, keyword) in enumerate(matches, 1):
+                    snippet = keyword if len(keyword) <= 120 else keyword[:117] + "..."
+                    detail_lines.append(f"  {i:>4}. [{ts}] 行{line_idx + 1}  {snippet}")
         if not detail_lines:
             detail_lines.append("未匹配到任何异常规则")
         sections.append(("详细结果", detail_lines))
