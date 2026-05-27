@@ -9,11 +9,22 @@ from PyQt6.QtWidgets import (
     QLabel, QTableWidget, QTableWidgetItem, QHeaderView,
     QPushButton, QMessageBox, QFileDialog, QInputDialog,
     QCheckBox, QProgressBar, QGroupBox, QFrame,
-    QTreeWidget, QTreeWidgetItem,
+    QTreeWidget, QTreeWidgetItem, QStackedWidget,
+    QScrollArea, QSizePolicy,
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QAction, QActionGroup
 from datetime import datetime
+
+import matplotlib
+matplotlib.use("QtAgg")
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from matplotlib.font_manager import FontProperties
+import matplotlib.dates as mdates
+
+_ZH_FONT = FontProperties(fname="C:\\Windows\\Fonts\\msyh.ttc", size=10)
+_ZH_FONT_TITLE = FontProperties(fname="C:\\Windows\\Fonts\\msyh.ttc", size=12)
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -22,7 +33,7 @@ from reportlab.lib.units import mm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    HRFlowable,
+    HRFlowable, Image,
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -924,6 +935,7 @@ class MainWindow(QMainWindow):
         self.realtime_interval_min = 30
         self.last_analysis = None
         self.last_update = None
+        self._current_figure = None
 
         self.realtime_timer = QTimer(self)
         self.realtime_timer.timeout.connect(self._refresh_realtime)
@@ -1036,9 +1048,30 @@ class MainWindow(QMainWindow):
         anomaly_calc_act.triggered.connect(self.run_anomaly)
         calc_menu.addAction(anomaly_calc_act)
 
+        other_menu = menubar.addMenu("其他计算")
+        other_menu.setFont(menubar_font)
+
+        summary_act = QAction("开关机状态汇总", self)
+        summary_act.triggered.connect(self.run_status_summary)
+        other_menu.addAction(summary_act)
+
+        power_act = QAction("硬软开关机", self)
+        power_act.triggered.connect(self.run_power_reset)
+        other_menu.addAction(power_act)
+
+        battery_act = QAction("电池变化", self)
+        battery_act.triggered.connect(self.run_battery_chart)
+        other_menu.addAction(battery_act)
+
+        voltage_act = QAction("电压变化", self)
+        voltage_act.triggered.connect(self.run_voltage_chart)
+        other_menu.addAction(voltage_act)
+
+        other_menu.addSeparator()
+
         verinfo_act = QAction("升级版本", self)
         verinfo_act.triggered.connect(self.run_upgrade_version)
-        calc_menu.addAction(verinfo_act)
+        other_menu.addAction(verinfo_act)
 
         mode_menu = menubar.addMenu("模式")
         mode_menu.setFont(menubar_font)
@@ -1197,12 +1230,25 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(self.path_label)
 
+        self.output_stack = QStackedWidget()
+
         self.output = QTreeWidget()
         self.output.setHeaderHidden(True)
         self.output.setFont(QFont("Consolas", 11))
         self.output.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
         self.output.setIndentation(16)
-        layout.addWidget(self.output)
+        self.output_stack.addWidget(self.output)  # index 0: tree
+
+        self.chart_container = QWidget()
+        self.chart_layout = QVBoxLayout(self.chart_container)
+        self.chart_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.chart_scroll = QScrollArea()
+        self.chart_scroll.setWidgetResizable(False)
+        self.chart_scroll.setWidget(self.chart_container)
+        self.output_stack.addWidget(self.chart_scroll)  # index 1: chart
+
+        layout.addWidget(self.output_stack)
 
         self.progress = QProgressBar()
         self.progress.setFixedHeight(22)
@@ -1414,6 +1460,7 @@ class MainWindow(QMainWindow):
     def _show_sections(self, sections):
         """sections: list of (title, lines) — title is bold collapsible header"""
         self._last_sections = sections
+        self.output_stack.setCurrentIndex(0)  # switch to tree view
         self.output.clear()
         for title, lines in sections:
             parent = QTreeWidgetItem(self.output)
@@ -1428,6 +1475,7 @@ class MainWindow(QMainWindow):
 
     def _show_plain(self, text):
         self._last_sections = [("分析结果", text.split("\n"))] if text else []
+        self.output_stack.setCurrentIndex(0)
         self.output.clear()
         if text:
             item = QTreeWidgetItem(self.output)
@@ -1883,6 +1931,16 @@ class MainWindow(QMainWindow):
                         story.append(Paragraph(f"  {escaped}", style_body))
                     story.append(Spacer(1, 2 * mm))
 
+            if self._current_figure is not None:
+                import tempfile, time
+                tmp_path = os.path.join(tempfile.gettempdir(), f"_bigboom_chart_{int(time.time())}.png")
+                self._current_figure.savefig(tmp_path, format="png", dpi=120)
+                story.append(Spacer(1, 4 * mm))
+                img = Image(tmp_path, width=155 * mm, height=225 * mm)
+                img.hAlign = "CENTER"
+                story.append(Paragraph("图表", style_h1))
+                story.append(img)
+
             doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
             QMessageBox.information(self, "成功", "PDF 已保存")
         except Exception as e:
@@ -2162,6 +2220,8 @@ class MainWindow(QMainWindow):
             os.makedirs(test_dir, exist_ok=True)
             for cycle_no, start, end, seen in state['complete_list']:
                 end_idx = min(end, total - 1)
+                if end < total and end > start:
+                    end_idx = end - 1  # 下一个循环的头关键字仅在下个文件头出现
                 cycle_lines = lines[start:end_idx + 1]
                 filepath = os.path.join(test_dir, f"第{cycle_no}个循环.txt")
                 with open(filepath, "w", encoding="utf-8") as f:
@@ -2387,10 +2447,396 @@ class MainWindow(QMainWindow):
             return m.group(m.lastindex)
         return "--:--:--"
 
+    @staticmethod
+    def _to_datetimes(ts_list):
+        dts = []
+        for ts in ts_list:
+            try:
+                dts.append(datetime.strptime(ts, "%Y-%m-%d %H:%M:%S.%f"))
+            except ValueError:
+                try:
+                    dts.append(datetime.strptime(ts, "%Y-%m-%d %H:%M:%S"))
+                except ValueError:
+                    dts.append(None)
+        return dts
+
+    def _show_combined_chart(self, bat_ts, bat_vals, vol_ts, vol_vals,
+                             hard_count=0, soft_count=0, hard_range="", soft_range=""):
+        while self.chart_layout.count():
+            item = self.chart_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        fig = Figure(figsize=(10, 14), dpi=100)
+        canvas = FigureCanvas(fig)
+        _chart_pw, _chart_ph = 1000, 1400  # 10*100, 14*100
+
+        # Power reset summary as suptitle
+        parts = []
+        if hard_count > 0 or soft_count > 0:
+            parts.append(f"硬关机: {hard_count} 次" + (f"  ({hard_range})" if hard_range else ""))
+            parts.append(f"软关机: {soft_count} 次" + (f"  ({soft_range})" if soft_range else ""))
+        if parts:
+            fig.suptitle("开关机状态汇总\n" + "    ".join(parts),
+                         fontproperties=_ZH_FONT_TITLE, fontsize=14,
+                         color="#2c3e6b", y=0.99)
+
+        has_bat = bool(bat_vals)
+        has_vol = bool(vol_vals)
+
+        if has_bat and has_vol:
+            ax1 = fig.add_subplot(211)
+            ax2 = fig.add_subplot(212)
+        elif has_bat:
+            ax1 = fig.add_subplot(111)
+            ax2 = None
+        else:
+            ax1 = fig.add_subplot(111)
+            ax2 = None
+
+        if has_bat:
+            dts = self._to_datetimes(bat_ts)
+            valid = [(dt, v) for dt, v in zip(dts, bat_vals) if dt is not None]
+            if valid:
+                bd, bv = zip(*valid)
+                ax1.plot(bd, bv, marker=".", linestyle="-", linewidth=1, markersize=3)
+            ax1.set_ylabel("电量 (%)", fontproperties=_ZH_FONT)
+            ax1.set_title("电池电量变化", fontproperties=_ZH_FONT_TITLE)
+            ax1.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
+            ax1.grid(True, linestyle="--", alpha=0.7)
+
+        if has_vol and ax2 is not None:
+            dts = self._to_datetimes(vol_ts)
+            valid = [(dt, v) for dt, v in zip(dts, vol_vals) if dt is not None]
+            last_dt = None
+            if valid:
+                vd, vv = zip(*valid)
+                ax2.scatter(vd, vv, s=4, marker="o", color="steelblue", alpha=0.8)
+                last_dt = vd[-1]
+            ax2.axhline(y=4200, color="red", linewidth=2, linestyle="-")
+            if last_dt:
+                ax2.text(last_dt, 4200, "  4.2V",
+                         color="red", fontweight="bold", va="bottom", ha="left",
+                         fontproperties=_ZH_FONT)
+            ax2.set_xlabel("时间", fontproperties=_ZH_FONT)
+            ax2.set_ylabel("电压 (mV)", fontproperties=_ZH_FONT)
+            ax2.set_title("电压变化", fontproperties=_ZH_FONT_TITLE)
+            ax2.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
+            ax2.grid(True, linestyle="--", alpha=0.7)
+        elif has_vol:
+            dts = self._to_datetimes(vol_ts)
+            valid = [(dt, v) for dt, v in zip(dts, vol_vals) if dt is not None]
+            last_dt = None
+            if valid:
+                vd, vv = zip(*valid)
+                ax1.scatter(vd, vv, s=4, marker="o", color="steelblue", alpha=0.8)
+                last_dt = vd[-1]
+            ax1.axhline(y=4200, color="red", linewidth=2, linestyle="-")
+            if last_dt:
+                ax1.text(last_dt, 4200, "  4.2V",
+                         color="red", fontweight="bold", va="bottom", ha="left",
+                         fontproperties=_ZH_FONT)
+            ax1.set_xlabel("时间", fontproperties=_ZH_FONT)
+            ax1.set_ylabel("电压 (mV)", fontproperties=_ZH_FONT)
+            ax1.set_title("电压变化", fontproperties=_ZH_FONT_TITLE)
+            ax1.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
+            ax1.grid(True, linestyle="--", alpha=0.7)
+
+        fig.autofmt_xdate()
+        fig.subplots_adjust(left=0.077, right=0.985)
+        fig.tight_layout(rect=[0, 0, 1, 0.97])
+
+        # Clear and rebuild layout: stretch + canvas(centered) + stretch
+        while self.chart_layout.count():
+            item = self.chart_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+        self.chart_layout.addStretch()
+        self.chart_layout.addWidget(canvas, 0, Qt.AlignmentFlag.AlignCenter)
+        self.chart_layout.addStretch()
+        self.output_stack.setCurrentIndex(1)
+        self._current_figure = fig
+        self.chart_container.setFixedSize(_chart_pw, _chart_ph)
+
+    def _show_line_chart(self, title, timestamps, values, ylabel, as_scatter=False, hline=None):
+        if not timestamps:
+            QMessageBox.information(self, "提示", f"没有找到{title}数据")
+            return
+
+        # Clear old chart widgets
+        while self.chart_layout.count():
+            item = self.chart_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        fig = Figure(figsize=(10, 7), dpi=100)
+        canvas = FigureCanvas(fig)
+        _chart_pw, _chart_ph = 1000, 700  # 10*100, 7*100
+        ax = fig.add_subplot(111)
+
+        dts = self._to_datetimes(timestamps)
+        valid = [(dt, v) for dt, v in zip(dts, values) if dt is not None]
+        if not valid:
+            QMessageBox.information(self, "提示", "无法解析时间戳")
+            return
+
+        dts, vals = zip(*valid)
+        if as_scatter:
+            ax.scatter(dts, vals, s=6, marker="o", color="steelblue", alpha=0.8)
+        else:
+            ax.plot(dts, vals, marker=".", linestyle="-", linewidth=1, markersize=3)
+        ax.set_xlabel("时间", fontproperties=_ZH_FONT)
+        ax.set_ylabel(ylabel, fontproperties=_ZH_FONT)
+        ax.set_title(title, fontproperties=_ZH_FONT_TITLE)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
+        fig.autofmt_xdate()
+        ax.grid(True, linestyle="--", alpha=0.7)
+
+        if hline is not None:
+            ax.axhline(y=hline["value"], color="red", linewidth=2, linestyle="-")
+            ax.text(dts[-1], hline["value"], f"  {hline['label']}",
+                    color="red", fontweight="bold", va="bottom", ha="left",
+                    fontproperties=_ZH_FONT)
+
+        fig.tight_layout()
+
+        self.chart_layout.addWidget(canvas)
+        self.output_stack.setCurrentIndex(1)
+        self._current_figure = fig
+        self.chart_container.setFixedSize(_chart_pw, _chart_ph)
+
+    def run_status_summary(self, silent=False):
+        if not self.raw_content:
+            if not silent:
+                QMessageBox.information(self, "提示", "请先打开一个日志文件")
+            return
+        config = load_config()
+        if "开关机" not in config.get("test_selection", []):
+            if not silent:
+                QMessageBox.information(self, "提示", '请先在配置中勾选"开关机"')
+            return
+        self.last_analysis = self.run_status_summary
+
+        # 1. Power reset
+        self.run_power_reset(silent=True)
+        sections = list(self._last_sections) if self._last_sections else []
+
+        hard_count, soft_count = 0, 0
+        hard_range, soft_range = "", ""
+        for title, lines in sections:
+            if "硬关机" in title:
+                hard_count = int(re.search(r"\((\d+)", title).group(1)) if re.search(r"\((\d+)", title) else 0
+                for l in lines:
+                    if "时间段:" in l:
+                        hard_range = l.replace("时间段:", "").strip()
+            elif "软关机" in title:
+                soft_count = int(re.search(r"\((\d+)", title).group(1)) if re.search(r"\((\d+)", title) else 0
+                for l in lines:
+                    if "时间段:" in l:
+                        soft_range = l.replace("时间段:", "").strip()
+
+        # 2. Battery data
+        bat_ts, bat_vals = [], []
+        for line in self.raw_lines:
+            m = re.search(r"get_battery_info\s+vol:\d+\s+temperature:\d+\s+level:(\d+)", line)
+            if m:
+                bat_ts.append(self._extract_full_ts(line))
+                bat_vals.append(int(m.group(1)))
+
+        if bat_vals:
+            sections.append((f"电池电量变化  ({len(bat_vals)} 条)", [
+                f"最低: {min(bat_vals)}%",
+                f"最高: {max(bat_vals)}%",
+                f"平均: {sum(bat_vals) / len(bat_vals):.1f}%",
+                f"时间段: {bat_ts[0]}  ~  {bat_ts[-1]}",
+            ]))
+
+        # 3. Voltage data
+        vol_ts, vol_vals = [], []
+        for line in self.raw_lines:
+            m = re.search(r"get_battery_info\s+vol:(\d+)\s+temperature:\d+\s+level:\d+", line)
+            if m:
+                vol_ts.append(self._extract_full_ts(line))
+                vol_vals.append(int(m.group(1)))
+
+        if vol_vals:
+            sections.append((f"电压变化  ({len(vol_vals)} 条)", [
+                f"最低: {min(vol_vals)}mV ({min(vol_vals) / 1000:.2f}V)",
+                f"最高: {max(vol_vals)}mV ({max(vol_vals) / 1000:.2f}V)",
+                f"平均: {sum(vol_vals) / len(vol_vals):.1f}mV ({sum(vol_vals) / len(vol_vals) / 1000:.2f}V)",
+                f"时间段: {vol_ts[0]}  ~  {vol_ts[-1]}",
+            ]))
+
+        self._show_sections(sections)
+
+        # Combined chart
+        if not silent and (bat_vals or vol_vals):
+            self._show_combined_chart(bat_ts, bat_vals, vol_ts, vol_vals,
+                                      hard_count, soft_count, hard_range, soft_range)
+
+    def run_power_reset(self, silent=False):
+        if not self.raw_content:
+            if not silent:
+                QMessageBox.information(self, "提示", "请先打开一个日志文件")
+            return
+        config = load_config()
+        if "开关机" not in config.get("test_selection", []):
+            if not silent:
+                QMessageBox.information(self, "提示", '请先在配置中勾选"开关机"')
+            return
+        self.last_analysis = self.run_power_reset
+
+        rules_data = load_rules()
+        if "开关机" not in rules_data:
+            if not silent:
+                QMessageBox.information(self, "提示", "没有开关机关键字规则")
+            return
+
+        kws = []
+        for rule in rules_data["开关机"]:
+            checked = rule[2] if len(rule) >= 3 else True
+            if not checked:
+                continue
+            try:
+                kws.append((re.compile(rule[0]), rule[0], rule[1] if len(rule) >= 2 else ""))
+            except re.error:
+                continue
+
+        if not kws:
+            if not silent:
+                QMessageBox.information(self, "提示", "没有启用的开关机关键字")
+            return
+
+        first_cre = kws[0][0]
+
+        # detect cycles using the first keyword as delimiter
+        cycle_starts = []
+        for line_idx, line in enumerate(self.raw_lines):
+            if line and first_cre.search(line):
+                cycle_starts.append(line_idx)
+
+        if not cycle_starts:
+            if not silent:
+                QMessageBox.information(self, "提示", "未找到开关机循环")
+            return
+
+        hard_cycles = []
+        soft_cycles = []
+
+        for i, start_idx in enumerate(cycle_starts):
+            end_idx = cycle_starts[i + 1] if i + 1 < len(cycle_starts) else len(self.raw_lines)
+            has_reset0 = False
+            for j in range(start_idx, min(end_idx, len(self.raw_lines))):
+                if "reset reason 0" in self.raw_lines[j]:
+                    has_reset0 = True
+                    break
+            ts = self._extract_full_ts(self.raw_lines[start_idx])
+            if has_reset0:
+                hard_cycles.append(ts)
+            else:
+                soft_cycles.append(ts)
+
+        sections = []
+
+        def build_section(title, timestamps):
+            if not timestamps:
+                sections.append((f"{title}  (0 次)", ["(无)"]))
+            else:
+                first, last = timestamps[0], timestamps[-1]
+                sections.append((f"{title}  ({len(timestamps)} 次)", [
+                    f"时间段: {first}  ~  {last}"
+                ]))
+
+        build_section("硬关机 (有 reset reason 0)", hard_cycles)
+        build_section("软关机 (无 reset reason 0)", soft_cycles)
+
+        self._show_sections(sections)
+
+    def run_battery_chart(self, silent=False):
+        if not self.raw_content:
+            if not silent:
+                QMessageBox.information(self, "提示", "请先打开一个日志文件")
+            return
+        config = load_config()
+        if "开关机" not in config.get("test_selection", []):
+            if not silent:
+                QMessageBox.information(self, "提示", '请先在配置中勾选"开关机"')
+            return
+        self.last_analysis = self.run_battery_chart
+
+        timestamps = []
+        levels = []
+        for line in self.raw_lines:
+            m = re.search(r"get_battery_info\s+vol:\d+\s+temperature:\d+\s+level:(\d+)", line)
+            if m:
+                ts = self._extract_full_ts(line)
+                timestamps.append(ts)
+                levels.append(int(m.group(1)))
+
+        sections = []
+        if timestamps:
+            sections.append((f"电池电量变化  ({len(levels)} 条)", [
+                f"最低: {min(levels)}%",
+                f"最高: {max(levels)}%",
+                f"平均: {sum(levels) / len(levels):.1f}%",
+                f"时间段: {timestamps[0]}  ~  {timestamps[-1]}",
+            ]))
+        else:
+            sections.append(("电池电量变化  (0 条)", ["(无)"]))
+        self._show_sections(sections)
+
+        if not silent and timestamps:
+            self._show_line_chart("电池电量变化", timestamps, levels, "电量 (%)")
+
+    def run_voltage_chart(self, silent=False):
+        if not self.raw_content:
+            if not silent:
+                QMessageBox.information(self, "提示", "请先打开一个日志文件")
+            return
+        config = load_config()
+        if "开关机" not in config.get("test_selection", []):
+            if not silent:
+                QMessageBox.information(self, "提示", '请先在配置中勾选"开关机"')
+            return
+        self.last_analysis = self.run_voltage_chart
+
+        timestamps = []
+        volts = []
+        for line in self.raw_lines:
+            m = re.search(r"get_battery_info\s+vol:(\d+)\s+temperature:\d+\s+level:\d+", line)
+            if m:
+                ts = self._extract_full_ts(line)
+                timestamps.append(ts)
+                volts.append(int(m.group(1)))
+
+        sections = []
+        if volts:
+            min_v = min(volts)
+            max_v = max(volts)
+            avg_v = sum(volts) / len(volts)
+            sections.append((f"电压变化  ({len(volts)} 条)", [
+                f"最低: {min_v}mV ({min_v / 1000:.2f}V)",
+                f"最高: {max_v}mV ({max_v / 1000:.2f}V)",
+                f"平均: {avg_v:.1f}mV ({avg_v / 1000:.2f}V)",
+                f"时间段: {timestamps[0]}  ~  {timestamps[-1]}",
+            ]))
+        else:
+            sections.append(("电压变化  (0 条)", ["(无)"]))
+        self._show_sections(sections)
+
+        if not silent and volts:
+            self._show_line_chart("电压变化", timestamps, volts, "电压 (mV)",
+                                  as_scatter=True, hline={"value": 4200, "label": "4.2V"})
+
     def run_upgrade_version(self, silent=False):
         if not self.raw_content:
             if not silent:
                 QMessageBox.information(self, "提示", "请先打开一个日志文件")
+            return
+        config = load_config()
+        if "卡刷OTA升级" not in config.get("test_selection", []):
+            if not silent:
+                QMessageBox.information(self, "提示", '请先在配置中勾选"卡刷OTA升级"')
             return
         self.last_analysis = self.run_upgrade_version
 
@@ -2618,7 +3064,7 @@ class MainWindow(QMainWindow):
         if not ts_str or ts_str == "--:--:--":
             return None
         ts_str = ts_str.strip("[]")
-        for fmt in ["%Y-%m-%d %H:%M:%S", "%y/%m/%d %H:%M:%S", "%m/%d/%y %H:%M:%S"]:
+        for fmt in ["%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%y/%m/%d %H:%M:%S", "%m/%d/%y %H:%M:%S"]:
             try:
                 return datetime.strptime(ts_str, fmt).timestamp()
             except ValueError:

@@ -32,7 +32,8 @@
       "Bash(ls -la build/ dist/)",
       "Bash(ls *.spec)",
       "Bash(rm -rf build/ dist/)",
-      "Bash(pyinstaller --clean BigBoom.spec)"
+      "Bash(pyinstaller --clean BigBoom.spec)",
+      "Bash(Select-Object Name, FullName, PSIsContainer)"
     ]
   }
 }
