@@ -1,5 +1,215 @@
 [
   [
+    "RESET",
+    "ROMBoot startup",
+    "异常重启1",
+    true,
+    false
+  ],
+  [
+    "RESET",
+    "i:version",
+    "异常重启2",
+    true,
+    false
+  ],
+  [
+    "RESET",
+    "reset reason 0",
+    "Wi-Fi重启原因0",
+    true,
+    false
+  ],
+  [
+    "RESET",
+    "reset reason 1",
+    "Wi-Fi重启原因1",
+    true,
+    false
+  ],
+  [
+    "RESET",
+    "reset reason 2",
+    "Wi-Fi重启原因2",
+    true,
+    false
+  ],
+  [
+    "绑定解绑",
+    "reset reason 0",
+    "Wi-Fi重启原因0",
+    true,
+    false
+  ],
+  [
+    "绑定解绑",
+    "reset reason 1",
+    "Wi-Fi重启原因1",
+    true,
+    false
+  ],
+  [
+    "绑定解绑",
+    "reset reason 2",
+    "Wi-Fi重启原因2",
+    true,
+    false
+  ],
+  [
+    "绑定解绑",
+    "play audio file /usr/bin/audio/us/connect_timeout",
+    "绑定失败",
+    true,
+    false
+  ],
+  [
+    "绑定解绑",
+    "ROMBoot startup",
+    "异常重启1",
+    true,
+    false
+  ],
+  [
+    "绑定解绑",
+    "i:version",
+    "异常重启2",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "reset reason 0",
+    "Wi-Fi重启原因0",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "reset reason 1",
+    "Wi-Fi重启原因1",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "reset reason 2",
+    "Wi-Fi重启原因2",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "gz_sys_upgrade_ex wifi update result: -1",
+    "Wi-Fi升级失败",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "upgrade dsp send firmware fail",
+    "基站升级失败",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "s_radar_upgrade_result: -1",
+    "雷达升级失败1",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "s_mcu_upgrade_result: -1",
+    "MCU升级失败",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "upgrade result:-1",
+    "主控升级失败",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "download finish result -15",
+    "OTA下载固件包失败",
+    true,
+    false
+  ],
+  [
+    "卡刷OTA升级",
+    "s_radar_upgrade_result:255",
+    "雷达升级失败2",
+    true,
+    false
+  ],
+  [
+    "开关机",
+    "mount failed",
+    "TF卡挂载失败",
+    true,
+    false
+  ],
+  [
+    "休眠唤醒",
+    "reset reason 0",
+    "Wi-Fi重启原因0",
+    true,
+    false
+  ],
+  [
+    "休眠唤醒",
+    "reset reason 1",
+    "Wi-Fi重启原因1",
+    true,
+    false
+  ],
+  [
+    "休眠唤醒",
+    "reset reason 2",
+    "Wi-Fi重启原因2",
+    true,
+    false
+  ],
+  [
+    "休眠唤醒",
+    "休眠唤醒",
+    "异常重启1",
+    true,
+    false
+  ],
+  [
+    "休眠唤醒",
+    "i:version",
+    "异常重启2",
+    true,
+    false
+  ],
+  [
+    "TF卡",
+    "reset reason 0",
+    "Wi-Fi重启原因0",
+    true,
+    false
+  ],
+  [
+    "TF卡",
+    "reset reason 1",
+    "Wi-Fi重启原因1",
+    true,
+    false
+  ],
+  [
+    "TF卡",
+    "reset reason 2",
+    "Wi-Fi重启原因2",
+    true,
+    false
+  ],
+  [
     "通用",
     "IMP_Encoder_PollingStream",
     "异常日志：CPU或内存跑满",
@@ -32,14 +242,14 @@
     "gz_hal_video_catchyuv IMP_FrameSource_GetFrame failed: ffffffff",
     "视频编码相关1",
     true,
-    true
+    false
   ],
   [
     "通用",
     "gz_video_input_catch_yuv capture yuv error: -1",
     "视频编码相关2",
     true,
-    true
+    false
   ],
   [
     "通用",
@@ -79,28 +289,28 @@
   [
     "通用",
     "mmc0: error -145",
-    "存储卡错误信息1",
+    "存储卡错误信息145",
     true,
     false
   ],
   [
     "通用",
     "mmc0: error -159",
-    "存储卡错误信息2",
+    "存储卡错误信息159",
     true,
     false
   ],
   [
     "通用",
     "mmc0: error -110",
-    "存储卡错误信息3",
+    "存储卡错误信息110",
     true,
     false
   ],
   [
     "通用",
     "open /dev/atbm_ioctl fail",
-    "WiFi驱动异常日志",
+    "WiFi驱动异常3",
     true,
     false
   ],
@@ -149,14 +359,14 @@
   [
     "通用",
     "electricity meter type:-1",
-    "I2C通信异常",
+    "I2C通信异常1",
     true,
     false
   ],
   [
     "通用",
     "err:aich i2c_write failed",
-    "I2C通信异常",
+    "I2C通信异常2",
     true,
     false
   ],
@@ -240,14 +450,14 @@
   [
     "通用",
     "plat_soc:E]wifi_power_on_fail",
-    "Wi-Fi驱动异常1",
+    "Wi-Fi驱动异常3",
     true,
     false
   ],
   [
     "通用",
     "plat_soc:E]hcc reinit failed!",
-    "Wi-Fi驱动异常2",
+    "Wi-Fi驱动异常4",
     true,
     false
   ],
@@ -368,7 +578,7 @@
     "get battery info failed",
     "主控与WiFi通信异常2",
     true,
-    true
+    false
   ],
   [
     "通用",
@@ -382,7 +592,7 @@
     "wifi_module_get_battery_info fail",
     "主控与WiFi通信异常4",
     true,
-    true
+    false
   ],
   [
     "通用",
@@ -436,14 +646,14 @@
   [
     "通用",
     "hcc tx buf que is full",
-    "6262L异常[WIFI-HCC]",
+    "6262L异常[WIFI-HCC]1",
     true,
     false
   ],
   [
     "通用",
     "free buf error",
-    "6262L异常[WIFI-HCC]",
+    "6262L异常[WIFI-HCC]2",
     true,
     false
   ],
@@ -646,7 +856,7 @@
   [
     "通用",
     "dp_report 110->3",
-    "卡空间不足",
+    "卡空间不足1",
     true,
     false
   ],
@@ -667,7 +877,7 @@
   [
     "通用",
     "gz_dp_report prop 110->3",
-    "卡空间不足",
+    "卡空间不足2",
     true,
     false
   ],
@@ -731,27 +941,6 @@
     "通用",
     "2cmotor_driver 3-0010: I2C transfer failed: -6",
     "马达驱动报错，需研发现场分析",
-    true,
-    false
-  ],
-  [
-    "通用",
-    "reset reason 0",
-    "Wi-Fi重启原因reason0",
-    true,
-    false
-  ],
-  [
-    "通用",
-    "reset reason 1",
-    "Wi-Fi重启原因reason1",
-    true,
-    false
-  ],
-  [
-    "通用",
-    "reset reason 2",
-    "Wi-Fi重启原因reason2",
     true,
     false
   ]

@@ -702,9 +702,7 @@ class AnomalyDialog(QDialog):
         self.resize(1050, 550)
 
         self.all_test_names = ["RESET", "绑定解绑", "卡刷OTA升级", "开关机", "休眠唤醒", "TF卡", "通用"]
-        config = load_config()
-        selected = set(config.get("test_selection", []) + ["通用"])
-        anomaly_rules = [r for r in load_anomaly_rules() if r[0] in selected]
+        anomaly_rules = load_anomaly_rules()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -934,6 +932,8 @@ class MainWindow(QMainWindow):
         self.realtime_running = False
         self.realtime_interval_min = 30
         self.last_analysis = None
+        self._use_excel_export = False
+        self._multi_device_sections = None
         self.last_update = None
         self._current_figure = None
 
@@ -987,7 +987,7 @@ class MainWindow(QMainWindow):
         multi_folder_act.triggered.connect(self.open_multi_device_folder)
         file_menu.addAction(multi_folder_act)
 
-        saveas_act = QAction("导出PDF    Ctrl+Shift+S", self)
+        saveas_act = QAction("保存结果    Ctrl+Shift+S", self)
         saveas_act.triggered.connect(self.save_as_file)
         file_menu.addAction(saveas_act)
 
@@ -1531,6 +1531,7 @@ class MainWindow(QMainWindow):
         self.output.clear()
         self.current_file = path
         self.current_folder = None
+        self.current_multi_folder = None
         self.last_analysis = None
         self._realtime_file_size = os.path.getsize(path)
         self.setWindowTitle(f"日志关键信息分析 - {os.path.basename(path)}")
@@ -1559,6 +1560,7 @@ class MainWindow(QMainWindow):
         self.output.clear()
         self.current_file = None
         self.current_folder = folder
+        self.current_multi_folder = None
         self.last_analysis = None
         self.path_label.setText(
             f"文件夹: {folder}  ·  {file_count} 个文件  ·  {total_lines} 行"
@@ -1589,53 +1591,23 @@ class MainWindow(QMainWindow):
         if self.realtime_running:
             self._stop_realtime()
 
-        saved_content = self.raw_content
-        saved_lines = self.raw_lines
-        saved_file = self.current_file
-        saved_folder = self.current_folder
-
         self.current_file = None
         self.current_folder = None
-
-        all_sections = []
-        total_devices = len(subdirs)
-
-        for di, subdir in enumerate(subdirs):
-            device_name = os.path.basename(subdir)
-            self.progress.setFormat(f"处理设备 {di + 1}/{total_devices}: {device_name} … %p%")
-            self.progress.setValue(0)
-            QApplication.processEvents()
-
-            merged, file_count, total_lines = self._merge_folder_files(subdir)
-            if merged is None:
-                continue
-
-            self.raw_content = "\n".join(merged)
-            self.raw_lines = merged
-            self._extract_device_info(self.raw_content)
-
-            device_sections = self._run_device_analysis(device_name, file_count, total_lines)
-            all_sections.extend(device_sections)
-
-        self.raw_content = saved_content
-        self.raw_lines = saved_lines
-        self.current_file = saved_file
-        self.current_folder = saved_folder
         self.current_multi_folder = folder
+        self.raw_content = ""
+        self.raw_lines = []
+        self._last_sections = []
+        self.output.clear()
 
-        self.progress.setFormat("%p%")
-        self.progress.setValue(0)
-        self._last_sections = all_sections
-        self._show_sections(all_sections)
+        total_devices = len(subdirs)
         self.path_label.setText(
-            f"多设备文件夹: {folder}  ·  {total_devices} 个设备"
+            f'多设备文件夹: {folder}  ·  {total_devices} 个设备  (点击“我全都要”开始分析)'
         )
         self.path_label.setStyleSheet(
             "padding: 5px 14px; background: #eaecef; "
             "border-bottom: 1px solid #c8ccd1; color: #1f2937;"
         )
         self.setWindowTitle(f"日志关键信息分析 - 多设备 {os.path.basename(folder)}")
-        QMessageBox.information(self, "完成", f"已完成 {total_devices} 个设备的分析")
 
     def _run_device_analysis(self, device_name, file_count, total_lines):
         sections = []
@@ -1804,15 +1776,154 @@ class MainWindow(QMainWindow):
             self.save_as_file()
 
     def save_as_file(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出PDF", "", "PDF文件 (*.pdf)"
-        )
-        if not path:
-            return
-        self._write_pdf(path)
-        self.current_file = path
-        self.path_label.setText(path)
-        self.setWindowTitle(f"日志关键信息分析 - {os.path.basename(path)}")
+        if self._use_excel_export and self._last_sections:
+            folder = QFileDialog.getExistingDirectory(self, "选择导出文件夹")
+            if not folder:
+                return
+            self._export_calc_results(folder)
+        else:
+            path, _ = QFileDialog.getSaveFileName(
+                self, "导出PDF", "", "PDF文件 (*.pdf)"
+            )
+            if not path:
+                return
+            self._write_pdf(path)
+            self.current_file = path
+            self.path_label.setText(path)
+            self.setWindowTitle(f"日志关键信息分析 - {os.path.basename(path)}")
+
+    def _export_calc_results(self, folder):
+        if self._multi_device_sections:
+            # Excel: one per device
+            for device_name, device_sections in self._multi_device_sections:
+                safe_name = "".join(c for c in device_name if c not in r'\/:*?"<>|')
+                excel_path = os.path.join(folder, f"{safe_name}.xlsx")
+                sheets = self._sections_to_sheets(device_sections)
+                self._write_excel(excel_path, sheets)
+            # PDF: single file with all devices' summaries
+            pdf_path = os.path.join(folder, "多设备分析报告.pdf")
+            pdf_sections = []
+            for device_name, device_sections in self._multi_device_sections:
+                pdf_sections.extend(self._filter_pdf_sections(device_sections))
+            saved_sections = self._last_sections
+            saved_fig = self._current_figure
+            self._current_figure = None
+            self._last_sections = pdf_sections
+            self._write_pdf(pdf_path, silent=True)
+            self._last_sections = saved_sections
+            self._current_figure = saved_fig
+            QMessageBox.information(self, "完成",
+                f"已导出 {len(self._multi_device_sections)} 个设备到 {folder}")
+        else:
+            base = os.path.basename(self.current_file or self.current_folder or "")
+            if not base:
+                base = "分析结果"
+            safe_name = "".join(c for c in base if c not in r'\/:*?"<>|')
+            excel_path = os.path.join(folder, f"{safe_name}.xlsx")
+            pdf_path = os.path.join(folder, f"{safe_name}.pdf")
+            sheets = self._sections_to_sheets(self._last_sections)
+            if not sheets:
+                name = self._calc_analysis_name()
+                _SKIP = ("总结", "设备信息", "文件保存", "关键字匹配次数统计")
+                sheets = {name: [(t, l) for t, l in self._last_sections
+                                 if not any(kw in t for kw in _SKIP)]}
+            self._write_excel(excel_path, sheets)
+            # PDF: summaries and device info only
+            pdf_sections = self._filter_pdf_sections(self._last_sections)
+            saved_sections = self._last_sections
+            self._last_sections = pdf_sections
+            self._write_pdf(pdf_path, silent=True)
+            self._last_sections = saved_sections
+            QMessageBox.information(self, "完成", f"已导出到 {folder}")
+
+    @staticmethod
+    def _filter_pdf_sections(sections):
+        """Keep only summary and device info sections for PDF."""
+        result = []
+        for title, lines in sections:
+            if title.startswith("▍"):
+                name = title[1:]
+                if "设备:" in name:
+                    # Device header: use plain title so lines (SN, version) get rendered
+                    device_name = name.split("设备:")[1].strip()
+                    result.append((f"设备: {device_name}", lines))
+                elif " - " in name:
+                    # "284 - 关键打印" → just "关键打印"
+                    result.append(("▍" + name.split(" - ", 1)[1], []))
+                else:
+                    result.append((title, []))
+            elif "设备信息" in title:
+                result.append((title, lines))
+            elif "总结" in title:
+                # Remove lines listing specific cycles/positions
+                filtered = [l for l in lines
+                            if not re.search(r'第\d+', l)]
+                result.append((title, filtered))
+        return result
+
+    def _calc_analysis_name(self):
+        if self.last_analysis == self.run_match:
+            return "关键打印"
+        elif self.last_analysis == self.run_keytime:
+            return "关键时间"
+        elif self.last_analysis == self.run_anomaly:
+            return "异常检测"
+        return "分析结果"
+
+    @staticmethod
+    def _sections_to_sheets(sections):
+        from collections import OrderedDict
+        _SKIP_KEYWORDS = ("总结", "设备信息", "文件保存", "关键字匹配次数统计")
+        sheets = OrderedDict()
+        current_sheet = None
+        _SHEET_NAMES = ("关键打印", "关键时间", "异常检测")
+        for title, lines in sections:
+            if title.startswith("▍"):
+                name = title[1:]
+                for sn in _SHEET_NAMES:
+                    if name.endswith(sn):
+                        current_sheet = sn
+                        if current_sheet not in sheets:
+                            sheets[current_sheet] = []
+                        break
+                continue
+            if current_sheet is not None:
+                if any(kw in title for kw in _SKIP_KEYWORDS):
+                    continue
+                sheets[current_sheet].append((title, lines))
+        return sheets
+
+    @staticmethod
+    def _write_excel(path, sheets):
+        import openpyxl
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+        for sheet_name, section_items in sheets.items():
+            ws = wb.create_sheet(title=sheet_name[:31])
+            ws.sheet_properties.tabColor = "2c3e6b"
+            row = 1
+            for title, lines in section_items:
+                ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+                cell = ws.cell(row=row, column=1, value=title)
+                cell.font = openpyxl.styles.Font(bold=True, size=11)
+                row += 1
+                for line in lines:
+                    parts = re.split(r' {2,}|\t', line)
+                    if len(parts) >= 2:
+                        for ci, part in enumerate(parts):
+                            ws.cell(row=row, column=ci + 1, value=part.strip()).font = openpyxl.styles.Font(size=10)
+                    else:
+                        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+                        ws.cell(row=row, column=1, value=line).font = openpyxl.styles.Font(size=10)
+                    row += 1
+                row += 1
+            ws.column_dimensions['A'].width = 22
+            ws.column_dimensions['B'].width = 45
+            ws.column_dimensions['C'].width = 45
+            ws.column_dimensions['D'].width = 45
+            ws.column_dimensions['E'].width = 45
+            ws.column_dimensions['F'].width = 45
+        wb.save(path)
 
     def _register_chinese_font(self):
         font_name = "ChineseFont"
@@ -1830,7 +1941,7 @@ class MainWindow(QMainWindow):
                     continue
         return None
 
-    def _write_pdf(self, path):
+    def _write_pdf(self, path, silent=False):
         font_name = self._register_chinese_font()
         if font_name is None:
             QMessageBox.critical(self, "错误", "无法加载中文字体，请确认系统字体存在")
@@ -1942,7 +2053,8 @@ class MainWindow(QMainWindow):
                 story.append(img)
 
             doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
-            QMessageBox.information(self, "成功", "PDF 已保存")
+            if not silent:
+                QMessageBox.information(self, "成功", "PDF 已保存")
         except Exception as e:
             QMessageBox.critical(self, "错误", f"保存 PDF 失败: {e}")
 
@@ -1955,16 +2067,35 @@ class MainWindow(QMainWindow):
         return "--:--:--"
 
     def run_all(self, silent=False):
+        # ── 多设备模式：对每个设备依次执行全部分析 ──
+        if self.current_multi_folder:
+            self._use_excel_export = True
+            self._run_multi_device_analysis()
+            return
+
         if not self.raw_content:
             if not silent:
                 QMessageBox.information(self, "提示", "请先打开一个日志文件或文件夹")
             return
         self.last_analysis = self.run_all
-
+        self._use_excel_export = True
+        self._multi_device_sections = None
         def _clean(sections):
             return [(t, l) for t, l in sections if "设备信息" not in t and "异常检测" not in t]
 
         all_sections = []
+
+        # 设备信息放在最前面
+        device_info = load_device_info()
+        has_device = any(row[2] for row in device_info if len(row) >= 3)
+        if has_device:
+            dev_lines = []
+            for row in device_info:
+                nm = row[0]
+                info = row[2] if len(row) >= 3 else ""
+                if info:
+                    dev_lines.append(f"{nm}: {info}")
+            all_sections.append(("设备信息", dev_lines))
 
         # ── 1. 关键打印 ──
         self.progress.setFormat("关键打印… %p%")
@@ -1997,12 +2128,64 @@ class MainWindow(QMainWindow):
         self._last_sections = all_sections
         self._show_sections(all_sections)
 
+    def _run_multi_device_analysis(self):
+        folder = self.current_multi_folder
+        subdirs = [os.path.join(folder, d) for d in os.listdir(folder)
+                   if os.path.isdir(os.path.join(folder, d))]
+        subdirs.sort()
+
+        saved_content = self.raw_content
+        saved_lines = self.raw_lines
+        saved_file = self.current_file
+        saved_folder = self.current_folder
+
+        self.current_file = None
+        self.current_folder = None
+
+        all_sections = []
+        total_devices = len(subdirs)
+        per_device = []
+
+        for di, subdir in enumerate(subdirs):
+            device_name = os.path.basename(subdir)
+            self.progress.setFormat(f"处理设备 {di + 1}/{total_devices}: {device_name} … %p%")
+            self.progress.setValue(0)
+            QApplication.processEvents()
+
+            merged, file_count, total_lines = self._merge_folder_files(subdir)
+            if merged is None:
+                continue
+
+            self.raw_content = "\n".join(merged)
+            self.raw_lines = merged
+            self._extract_device_info(self.raw_content)
+
+            device_sections = self._run_device_analysis(device_name, file_count, total_lines)
+            all_sections.extend(device_sections)
+            per_device.append((device_name, device_sections))
+
+        self._multi_device_sections = per_device
+
+        self.raw_content = saved_content
+        self.raw_lines = saved_lines
+        self.current_file = saved_file
+        self.current_folder = saved_folder
+
+        self.progress.setFormat("%p%")
+        self.progress.setValue(0)
+        self._last_sections = all_sections
+        self._show_sections(all_sections)
+        self.setWindowTitle(f"日志关键信息分析 - 多设备 {os.path.basename(folder)}")
+        QMessageBox.information(self, "完成", f"已完成 {total_devices} 个设备的分析")
+
     def run_match(self, silent=False):
         if not self.raw_content:
             if not silent:
                 QMessageBox.information(self, "提示", "请先打开一个日志文件")
             return
         self.last_analysis = self.run_match
+        self._use_excel_export = True
+        self._multi_device_sections = None
 
         lines = self.raw_lines
         total = len(lines)
@@ -2237,6 +2420,8 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", "请先打开一个日志文件")
             return
         self.last_analysis = self.run_keytime
+        self._use_excel_export = True
+        self._multi_device_sections = None
 
         all_time_rules = load_time_rules()
         config = load_config()
@@ -2467,9 +2652,9 @@ class MainWindow(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
 
-        fig = Figure(figsize=(10, 14), dpi=100)
+        fig = Figure(figsize=(120 / 25.4, 180 / 25.4), dpi=200)
         canvas = FigureCanvas(fig)
-        _chart_pw, _chart_ph = 1000, 1400  # 10*100, 14*100
+        _chart_pw, _chart_ph = round(120 / 25.4 * 200), round(180 / 25.4 * 200)
 
         # Power reset summary as suptitle
         parts = []
@@ -2569,9 +2754,9 @@ class MainWindow(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
 
-        fig = Figure(figsize=(10, 7), dpi=100)
+        fig = Figure(figsize=(120 / 25.4, 80 / 25.4), dpi=200)
         canvas = FigureCanvas(fig)
-        _chart_pw, _chart_ph = 1000, 700  # 10*100, 7*100
+        _chart_pw, _chart_ph = round(120 / 25.4 * 200), round(80 / 25.4 * 200)
         ax = fig.add_subplot(111)
 
         dts = self._to_datetimes(timestamps)
@@ -2616,6 +2801,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", '请先在配置中勾选"开关机"')
             return
         self.last_analysis = self.run_status_summary
+        self._use_excel_export = False
 
         # 1. Power reset
         self.run_power_reset(silent=True)
@@ -2626,14 +2812,18 @@ class MainWindow(QMainWindow):
         for title, lines in sections:
             if "硬关机" in title:
                 hard_count = int(re.search(r"\((\d+)", title).group(1)) if re.search(r"\((\d+)", title) else 0
-                for l in lines:
-                    if "时间段:" in l:
-                        hard_range = l.replace("时间段:", "").strip()
+                if lines and lines[0] != "(无)" and "~" in lines[0]:
+                    first_start = lines[0].split("~")[0].strip()
+                    last_end = lines[-1].split("~")[1].strip() if "~" in lines[-1] else ""
+                    if first_start and last_end:
+                        hard_range = f"{first_start} ~ {last_end}"
             elif "软关机" in title:
                 soft_count = int(re.search(r"\((\d+)", title).group(1)) if re.search(r"\((\d+)", title) else 0
-                for l in lines:
-                    if "时间段:" in l:
-                        soft_range = l.replace("时间段:", "").strip()
+                if lines and lines[0] != "(无)" and "~" in lines[0]:
+                    first_start = lines[0].split("~")[0].strip()
+                    last_end = lines[-1].split("~")[1].strip() if "~" in lines[-1] else ""
+                    if first_start and last_end:
+                        soft_range = f"{first_start} ~ {last_end}"
 
         # 2. Battery data
         bat_ts, bat_vals = [], []
@@ -2685,6 +2875,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", '请先在配置中勾选"开关机"')
             return
         self.last_analysis = self.run_power_reset
+        self._use_excel_export = False
 
         rules_data = load_rules()
         if "开关机" not in rules_data:
@@ -2720,9 +2911,8 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", "未找到开关机循环")
             return
 
-        hard_cycles = []
-        soft_cycles = []
-
+        # Collect all cycles in order with their type
+        cycles = []  # (is_hard, ts)
         for i, start_idx in enumerate(cycle_starts):
             end_idx = cycle_starts[i + 1] if i + 1 < len(cycle_starts) else len(self.raw_lines)
             has_reset0 = False
@@ -2731,24 +2921,41 @@ class MainWindow(QMainWindow):
                     has_reset0 = True
                     break
             ts = self._extract_full_ts(self.raw_lines[start_idx])
-            if has_reset0:
-                hard_cycles.append(ts)
-            else:
-                soft_cycles.append(ts)
+            cycles.append((has_reset0, ts))
+
+        def group_ranges(want_hard):
+            """Group consecutive same-type cycles into (start_ts, end_ts) ranges."""
+            ranges = []
+            start = None
+            count = 0
+            for is_hard, ts in cycles:
+                if is_hard == want_hard:
+                    count += 1
+                    if start is None:
+                        start = ts
+                    end = ts
+                else:
+                    if start is not None:
+                        ranges.append((start, end))
+                        start = None
+            if start is not None:
+                ranges.append((start, end))
+            return ranges, count
+
+        hard_ranges, hard_count = group_ranges(True)
+        soft_ranges, soft_count = group_ranges(False)
 
         sections = []
 
-        def build_section(title, timestamps):
-            if not timestamps:
+        def build_section(title, ranges, total):
+            if not ranges:
                 sections.append((f"{title}  (0 次)", ["(无)"]))
             else:
-                first, last = timestamps[0], timestamps[-1]
-                sections.append((f"{title}  ({len(timestamps)} 次)", [
-                    f"时间段: {first}  ~  {last}"
-                ]))
+                lines = [f"{s}  ~  {e}" for s, e in ranges]
+                sections.append((f"{title}  ({total} 次)", lines))
 
-        build_section("硬关机 (有 reset reason 0)", hard_cycles)
-        build_section("软关机 (无 reset reason 0)", soft_cycles)
+        build_section("硬关机 (有 reset reason 0)", hard_ranges, hard_count)
+        build_section("软关机 (无 reset reason 0)", soft_ranges, soft_count)
 
         self._show_sections(sections)
 
@@ -2763,6 +2970,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", '请先在配置中勾选"开关机"')
             return
         self.last_analysis = self.run_battery_chart
+        self._use_excel_export = False
 
         timestamps = []
         levels = []
@@ -2799,6 +3007,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", '请先在配置中勾选"开关机"')
             return
         self.last_analysis = self.run_voltage_chart
+        self._use_excel_export = False
 
         timestamps = []
         volts = []
@@ -2839,6 +3048,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", '请先在配置中勾选"卡刷OTA升级"')
             return
         self.last_analysis = self.run_upgrade_version
+        self._use_excel_export = False
 
         full_versions = []
         wifi_versions = []
@@ -2879,7 +3089,8 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "提示", "请先打开一个日志文件或文件夹")
             return
         self.last_analysis = self.run_anomaly
-
+        self._use_excel_export = True
+        self._multi_device_sections = None
         all_rules = load_anomaly_rules()
         config = load_config()
         selected_tests = config.get("test_selection", [])

@@ -38,6 +38,7 @@ a = Analysis(
         'matplotlib.figure',
         'matplotlib.font_manager',
         'matplotlib.dates',
+        'openpyxl',
         'json',
         'csv',
         'shutil',
