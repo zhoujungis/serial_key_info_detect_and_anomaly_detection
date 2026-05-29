@@ -35,7 +35,8 @@
       "Bash(pyinstaller --clean BigBoom.spec)",
       "Bash(Select-Object Name, FullName, PSIsContainer)",
       "Bash(Select-Object FullName, Mode)",
-      "Bash(Sort-Object Mode)"
+      "Bash(Sort-Object Mode)",
+      "Bash(git *)"
     ]
   }
 }
